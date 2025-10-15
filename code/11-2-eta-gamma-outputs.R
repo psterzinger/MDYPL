@@ -36,8 +36,7 @@ pdf(file.path(figures_path, "cLS-MDYPL-upsilon.pdf"), width = 8, height = 3)
 ggplot(consts) +
     geom_histogram(aes(upsilon), bins = 50) +
     geom_rect(data = bounds, aes(xmin = minimum, xmax = maximum, ymin = 0, ymax = Inf), alpha = 0.2) +
-    ## geom_vline(data = bounds, aes(xintercept = minimum)) +
-    ## geom_vline(data = bounds, aes(xintercept = maximum)) +
     facet_grid(kappa ~ N, labeller = label_bquote(cols = N == .(N), rows = kappa == .(kappa))) +
+    labs(x = expression(upsilon)) +
     theme_minimal()
 dev.off()

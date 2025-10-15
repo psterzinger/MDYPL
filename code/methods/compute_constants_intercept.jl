@@ -3,7 +3,7 @@ using RCall, Optim, LinearAlgebra, Statistics, NonlinearSolve, StatsBase;
 intercept_unknown = true
 
 
-include(joinpath("/Users/yiannis/Repositories/hdl/code/mDYPL_supplementary", "Scripts", "mDYPL.jl"))
+include(joinpath("mDYPL.jl"))
 using .mDYPL
 
 enp_file = ARGS[1]

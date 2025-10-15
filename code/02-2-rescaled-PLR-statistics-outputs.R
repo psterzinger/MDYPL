@@ -14,7 +14,7 @@ qq_5 <- ggplot(lr_5 |> na.omit()) +
     facet_grid(alpha_fac ~ kappa_fac, labeller = label_parsed) +
     theme_minimal() +
     theme(legend.position = "none") +
-    scale_color_grey(start = 0.6, end = 0.3) +
+    scale_color_grey(start = 0.6, end = 0.3, name = "statistic") +
     labs(title = expression({{beta[paste(0, ",", 1)] == ldots} == beta[paste(0, ",", 5)]} == 0))
 qq_50 <- ggplot(lr_50 |> na.omit()) +
    geom_qq(aes(sample = value, col = method), distribution = qchisq, dparams = list(df = 50),
@@ -23,7 +23,7 @@ qq_50 <- ggplot(lr_50 |> na.omit()) +
    facet_grid(alpha_fac ~ kappa_fac, labeller = label_parsed) +
    theme_minimal() +
    theme(legend.position = "right") +
-   scale_color_grey(start = 0.6, end = 0.3) +
+   scale_color_grey(start = 0.6, end = 0.3, name = "statistic") +
    labs(title = expression({{beta[paste(0, ",", 1)] == ldots} == beta[paste(0, ",", 50)]} == 0))
 
 
