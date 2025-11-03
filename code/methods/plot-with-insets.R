@@ -1,12 +1,14 @@
-plot_with_insets <- function(estimates, pt, type, N, cols) {
+plot_with_insets <- function(estimates, pt, type, cols = c("#CF4446", "#00AD9A", "#FB9A06"),
+                             alpha_fac = 500, p_size = 0.5, vp_h = 0.14, vp_w = vp_h * 1.1) {
     kappa_gamma <- unique(estimates[c("kappa", "gamma")])
     insets_estimates <- as.list(rep(NA, nrow(kappa_gamma)))
     for (wh in 1:nrow(kappa_gamma)) {
         ckappa <- kappa_gamma[wh, "kappa"]
         cgamma <- kappa_gamma[wh, "gamma"]
-        p_alpha <- alpha_fac * (1 - ckappa) / N
         ep <- estimates |>
-            subset(kappa == ckappa & gamma == cgamma) |>
+            subset(kappa == ckappa & gamma == cgamma)
+        p_alpha <- alpha_fac * (1 - ckappa) / nrow(ep)
+        ep <- ep |>
             plot_results(p_alpha = p_alpha, p_size = p_size, type = type, cols = cols) +
             geom_hline(aes(yintercept = 0), linetype = 3, col = "grey")
         insets_estimates[[wh]] <- tibble(x = ckappa,
@@ -29,41 +31,32 @@ plot_with_insets <- function(estimates, pt, type, N, cols) {
     out
 }
 
-
 ## For a single kappa/gamma combination
 plot_results <- function(summaries, cols = c("#CF4446", "#00AD9A", "#FB9A06"),
                          p_alpha = 0.2, p_size = 1,
                          type = c("estimate_vs_truth", "estimate_and_truth")) {
     type <- match.arg(type)
-    summaries$method <- factor(summaries$method, levels = c("ML", "mDYPL"), ordered = TRUE)
-    ## If the ML estimates do not exist plot nothing
-    if (all(!summaries$mle_exists)) {
-        summaries <- summaries |> subset(method != "ML")
-    }
     lims <- with(summaries, range(c(truth, estimate)))
     if (type == "estimate_vs_truth") {
         p1 <- ggplot(summaries) +
-            geom_point(aes(x = truth, y = estimate, col = method), alpha = p_alpha, size = p_size) +
+            geom_point(aes(x = truth, y = estimate), alpha = p_alpha, size = p_size, col = cols[3]) +
             geom_abline(aes(intercept = 0, slope = 1), col = "black", lwd = 0.5) +
             geom_smooth(aes(x = truth, y = estimate),
                         method = "lm", formula = "y ~ x",
                         se = FALSE, col = cols[2], lwd = 0.5) +
-            coord_cartesian(x = lims, y = lims) +
-            scale_colour_manual(values = c("ML" = cols[1], "mDYPL" = cols[3]))
+            coord_cartesian(x = lims, y = lims)
     }
     if (type == "estimate_and_truth") {
-        sd <- summaries |> group_by(kappa, gamma, method, truth) |>
+        sd <- summaries |> group_by(kappa, gamma, truth) |>
             summarize(e_mean = mean(estimate)) |>
-            inner_join(summaries, c("kappa", "gamma", "method", "truth"))
+            inner_join(summaries, c("kappa", "gamma", "truth"))
         p1 <- ggplot(summaries) +
-            geom_point(aes(x = parameter, y = estimate, col = method), alpha = p_alpha, size = p_size) +
+            geom_point(aes(x = parameter, y = estimate), alpha = p_alpha, size = p_size, col = cols[3]) +
             geom_line(aes(x = parameter, y = truth), col = "black", lwd = 0.5) +
             geom_line(data = sd, aes(x = parameter, y = e_mean), col = cols[2], lwd = 0.5) +
-           coord_cartesian(y = lims) +
-            scale_colour_manual(values = c("ML" = cols[1], "mDYPL" = cols[3]))
+            coord_cartesian(y = lims)
     }
     p1 + theme_minimal() +
-        facet_grid(~ method) +
         theme(legend.position = "none") +
         theme(
             plot.background = element_rect(fill= 'transparent', color = "grey"),
