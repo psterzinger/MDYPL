@@ -32,7 +32,6 @@ estimate_s1 <- function(kappa, gamma) {
     data.frame(estimate = coefs,
                kappa = kappa,
                gamma = gamma,
-               mu = mu,
                truth = beta0,
                parameter = seq_along(beta0),
                method = "mDYPL")
@@ -54,7 +53,6 @@ estimate_s2 <- function(kappa, gamma) {
     data.frame(estimate = coefs,
                kappa = kappa,
                gamma = gamma,
-               mu = mu,
                truth = beta0,
                parameter = seq_along(beta0),
                method = "mDYPL")
@@ -97,8 +95,11 @@ if (file.exists(out_file)) {
         seeds <- generate_unique_seeds(n_reps)
         ests_s1 <- mclapply(1:n_reps, function(i) { set.seed(i); estimate_s1(kappa, gamma) }, mc.cores = n_cores)
         ests_s2 <- mclapply(1:n_reps, function(i) { set.seed(i); estimate_s2(kappa, gamma) }, mc.cores = n_cores)
-        est_s1 <- rbind(est_s1, do.call("rbind", ests_s1))
-        est_s2 <- rbind(est_s2, do.call("rbind", ests_s2))
+        ests_s1 <- do.call("rbind", ests_s1)
+        ests_s2 <- do.call("rbind", ests_s2)
+        ests_s1$mu <- ests_s2$mu <- mu
+        est_s1 <- rbind(est_s1, ests_s1)
+        est_s2 <- rbind(est_s2, ests_s2)
         cat("kappa =", kappa, "gamma =", gamma, "Done.\n")
     }
 
