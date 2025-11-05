@@ -1,5 +1,7 @@
 supp_path <- "."
 figures_path <- file.path(supp_path, "figures")
+results_path <- file.path(supp_path, "results/new")
+out_file <- file.path(results_path, "rescaled-mDYPL-estimates.rda")
 n_cores <- 10
 
 library("dplyr")
@@ -12,7 +14,7 @@ devtools::load_all("~/Repositories/brglm2")
 
 source(file.path(supp_path, "code/methods/plot-with-insets.R"))
 source(file.path(supp_path, "code/methods/compute-pt.R"))
-source(file.path(supp_path, "code/methods/generate_unique_seeds.R"))
+source(file.path(supp_path, "code/methods/generate-unique-seeds.R"))
 
 ## Estimates for setting 1
 estimate_s1 <- function(kappa, gamma) {
@@ -58,48 +60,55 @@ estimate_s2 <- function(kappa, gamma) {
                method = "mDYPL")
 }
 
-## Get phase transition curve
-ns <- 200000
-set.seed(123)
-xzu <- data.frame(X = rnorm(ns), Z = rnorm(ns), U = runif(ns))
-ga <- c(0.001, 0.01, seq(0, 20, length = 200))
-pt <- compute_pt(gamma_grid = ga, ncores = n_cores, XZU = xzu)
 
-## Get mu, b, sigma for kappa, gamma settings
-kg <- data.frame(kappa = c(0.1, 0.1, 0.2, 0.2, 0.4, 0.4, 0.4, 0.6, 0.6, 0.8, 0.8, 0.8),
-                 gamma = c(10, 18, 6, 14, 2, 10, 18, 6, 14, 2, 10, 18))
-## Add the setting in Rigon and Aliverti (2023, Section 4.3) and another one where the MLE exists
-kg <- rbind(kg, c(0.2, sqrt(0.9)), c(0.04, 4.5))
-mbs <- matrix(NA, ncol = 3, nrow = nrow(kg))
-se_pars <- c(0.5, 1, 1)
-for (i in 1:nrow(kg)) {
-    kappa <- kg[i, "kappa"]
-    gamma <- kg[i, "gamma"]
-    mbs[i, ] <- se_pars <- solve_se(kappa, gamma, 1/(1 + kg[i, "kappa"]), start = se_pars)
-    cat("kappa =", kappa, "gamma =", gamma, "Done.\n")
+if (file.exists(out_file)) {
+    load(out_file)
+} else {
+    ## Get phase transition curve
+    ns <- 200000
+    set.seed(123)
+    xzu <- data.frame(X = rnorm(ns), Z = rnorm(ns), U = runif(ns))
+    ga <- c(0.001, 0.01, seq(0, 20, length = 200))
+    pt <- compute_pt(gamma_grid = ga, ncores = n_cores, XZU = xzu)
+
+    ## Get mu, b, sigma for kappa, gamma settings
+    kg <- data.frame(kappa = c(0.1, 0.1, 0.2, 0.2, 0.4, 0.4, 0.4, 0.6, 0.6, 0.8, 0.8, 0.8),
+                     gamma = c(10, 18, 6, 14, 2, 10, 18, 6, 14, 2, 10, 18))
+    ## Add the setting in Rigon and Aliverti (2023, Section 4.3) and another one where the MLE exists
+    kg <- rbind(kg, c(0.2, sqrt(0.9)), c(0.04, 4.5))
+    mbs <- matrix(NA, ncol = 3, nrow = nrow(kg))
+    se_pars <- c(0.5, 1, 1)
+    for (i in 1:nrow(kg)) {
+        kappa <- kg[i, "kappa"]
+        gamma <- kg[i, "gamma"]
+        mbs[i, ] <- se_pars <- solve_se(kappa, gamma, 1/(1 + kappa), start = se_pars)
+        cat("kappa =", kappa, "gamma =", gamma, "Done.\n")
+    }
+    colnames(mbs) <- c("mu", "b", "sigma")
+    kgmbs <- cbind(kg, mbs)
+
+    set.seed(123)
+    n_reps <- 10
+    est_s1 <- est_s2 <- NULL
+    for (i in 1:nrow(kgmbs)) {
+        kappa <- kgmbs[i, "kappa"]
+        gamma <- kgmbs[i, "gamma"]
+        mu <- kgmbs[i, "mu"]
+        seeds <- generate_unique_seeds(n_reps)
+        ests_s1 <- mclapply(1:n_reps, function(i) { set.seed(i); estimate_s1(kappa, gamma) }, mc.cores = n_cores)
+        ests_s2 <- mclapply(1:n_reps, function(i) { set.seed(i); estimate_s2(kappa, gamma) }, mc.cores = n_cores)
+        est_s1 <- rbind(est_s1, do.call("rbind", ests_s1))
+        est_s2 <- rbind(est_s2, do.call("rbind", ests_s2))
+        cat("kappa =", kappa, "gamma =", gamma, "Done.\n")
+    }
+
+    sum_est_s1 <- est_s1 |> group_by(kappa, gamma, parameter, mu, truth) |>
+        summarize(estimate = mean(estimate)) |> data.frame()
+    sum_est_s2 <- est_s2 |> group_by(kappa, gamma, parameter, mu, truth) |>
+        summarize(estimate = mean(estimate)) |> data.frame()
+
+    save(sum_est_s1, sum_est_s2, pt, file = file.path(results_path, "rescaled-mDYPL-estimates.rda"))
 }
-colnames(mbs) <- c("mu", "b", "sigma")
-kgmbs <- cbind(kg, mbs)
-
-set.seed(123)
-n_reps <- 10
-est_s1 <- est_s2 <- NULL
-for (i in 1:nrow(kgmbs)) {
-    kappa <- kgmbs[i, "kappa"]
-    gamma <- kgmbs[i, "gamma"]
-    mu <- kgmbs[i, "mu"]
-    seeds <- generate_unique_seeds(n_reps)
-    ests_s1 <- mclapply(1:n_reps, function(i) { set.seed(i); estimate_s1(kappa, gamma) }, mc.cores = n_cores)
-    ests_s2 <- mclapply(1:n_reps, function(i) { set.seed(i); estimate_s2(kappa, gamma) }, mc.cores = n_cores)
-    est_s1 <- rbind(est_s1, do.call("rbind", ests_s1))
-    est_s2 <- rbind(est_s2, do.call("rbind", ests_s2))
-    cat("kappa =", kappa, "gamma =", gamma, "Done.\n")
-}
-
-sum_est_s1 <- est_s1 |> group_by(kappa, gamma, parameter, mu, truth) |>
-    summarize(estimate = mean(estimate)) |> data.frame()
-sum_est_s2 <- est_s2 |> group_by(kappa, gamma, parameter, mu, truth) |>
-    summarize(estimate = mean(estimate)) |> data.frame()
 
 ## Plots
 cols <- hcl.colors(3, palette = "Dark 3")[c(2, 3, 1)]
