@@ -93,8 +93,8 @@ if (file.exists(out_file)) {
         gamma <- kgmbs[i, "gamma"]
         mu <- kgmbs[i, "mu"]
         seeds <- generate_unique_seeds(n_reps)
-        ests_s1 <- mclapply(1:n_reps, function(i) { set.seed(i); estimate_s1(kappa, gamma) }, mc.cores = n_cores)
-        ests_s2 <- mclapply(1:n_reps, function(i) { set.seed(i); estimate_s2(kappa, gamma) }, mc.cores = n_cores)
+        ests_s1 <- mclapply(1:n_reps, function(i) { set.seed(seeds[i]); estimate_s1(kappa, gamma) }, mc.cores = n_cores)
+        ests_s2 <- mclapply(1:n_reps, function(i) { set.seed(seeds[i]); estimate_s2(kappa, gamma) }, mc.cores = n_cores)
         ests_s1 <- do.call("rbind", ests_s1)
         ests_s2 <- do.call("rbind", ests_s2)
         ests_s1$mu <- ests_s2$mu <- mu
