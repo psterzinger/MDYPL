@@ -112,9 +112,10 @@ if (file.exists(out_file)) {
             "linf", max(start_sol[, 4], na.rm = TRUE), "\n")
     }
     colnames(start_sol) <- c("mu", "b", "sigma", "linf")
+    ## Get solutions for all alphas
     results <- mclapply(1:n_kg, function(i) {
-        kappa <- k0 <- kg[i, "kappa"]
-        gamma <- g0 <- kg[i, "gamma"]
+        kappa <- kg[i, "kappa"]
+        gamma <- kg[i, "gamma"]
         consts <- matrix(NA, n_a, 4)
         colnames(consts) <- c("mu", "b", "sigma", "linf")
         start <- start_sol[i, c("mu", "b", "sigma")]
