@@ -72,9 +72,12 @@ cls_z_stat <- function(estimate, beta0, X, eta, qrX = NULL) {
 
 mdypl <- function(X, y, alpha, start = NULL, se_start = c(0.5, 1, 1)) {
     fit <- glm(y ~ -1 + X, family = binomial(), method = "mdypl_fit", alpha = alpha, start = start)
-    ss <- try(summary(fit, hd_correction = TRUE,  se_start = se_start, init_iter = 0), silent = TRUE)
+    ss <- try(summary(fit, hd_correction = TRUE,
+                      solve_se_control = list(start = se_start, init_iter = 0)),
+              silent = TRUE)
     if (inherits(ss, "try-error")) { # try another time
-        ss <- summary(fit, hd_correction = TRUE,  se_start = se_start * 0.9, init_iter = 0)
+        ss <- summary(fit, hd_correction = TRUE,
+                      solve_se_control = list(start = se_start * 0.9, init_iter = 0))
     }
     consts <- ss$se_parameters
     list(estimate = coef(ss)[, "Estimate"],

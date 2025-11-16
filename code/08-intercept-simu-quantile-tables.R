@@ -112,5 +112,5 @@ if (file.exists(out_file)) {
 }
 
 long2wide(statistics) |>
-    filter(statistic == "plr_z") # |>
-    # data.frame() |> memisc:::toLatex.data.frame(digits = 1)
+    filter(statistic == "z_z")  |>
+    data.frame() |> memisc:::toLatex.data.frame(digits = 1)
