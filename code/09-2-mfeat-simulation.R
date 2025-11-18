@@ -85,8 +85,7 @@ for (j in seq.int(nrow(gb0))) {
 
     ## Simulate data sets
     simu_data <- replicate(nsimu, simu_fun(full_coefs, cbind(1, full_X)), simplify = FALSE)
-
-    results0 <- mclapply(seq.int(nsimu), function(k) {
+    fresults0 <- mclapply(seq.int(nsimu), function(k) {
         cat(k, "/", nsimu, "\n")
         y_o <- simu_data[[k]]$y
         y_adj <- adjust_response(y_o, alpha)

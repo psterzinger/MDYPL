@@ -41,7 +41,7 @@ simu_X <- function(n, kappa) {
 simu_y <- function(X, beta) {
     n <- nrow(X)
     eta <- drop(X %*% beta)
-    rbinom(n, 1, exp(eta) / (1 + exp(eta)))
+    rbinom(n, 1, plgis(eta))
 }
 
 cls <- function(X, y, eta, qrX = NULL) {

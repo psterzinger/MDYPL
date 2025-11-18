@@ -6,7 +6,6 @@ n_cores <- 8
 
 library("dplyr")
 library("ggplot2")
-library("ggpp")
 library("patchwork")
 library("parallel")
 ## library("brglm2")
@@ -59,7 +58,7 @@ if (file.exists(out_file)) {
         data.frame(consts, kappa = kappas, gamma)
     }, mc.cores = n_cores)
     result <- do.call("rbind", result)
-    save(pt, consts, file = out_file)
+    save(pt, result, file = out_file)
 }
 
 ## Check that all converged

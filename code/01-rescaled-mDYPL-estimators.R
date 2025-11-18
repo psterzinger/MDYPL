@@ -9,12 +9,14 @@ library("ggplot2")
 library("ggpp")
 library("patchwork")
 library("parallel")
+library("RcppNumerical")
 ## library("brglm2")
 devtools::load_all("~/Repositories/brglm2")
 
 source(file.path(supp_path, "code/methods/plot-with-insets.R"))
 source(file.path(supp_path, "code/methods/compute-pt.R"))
 source(file.path(supp_path, "code/methods/generate-unique-seeds.R"))
+source(file.path(supp_path, "code/methods/fit-mdypl.R"))
 
 ## Estimates for setting 1
 estimate_s1 <- function(kappa, gamma) {
@@ -28,7 +30,7 @@ estimate_s1 <- function(kappa, gamma) {
     beta0 <- sort(sqrt(n) * gamma * beta0 / sqrt(sum(beta0^2)))
     X <- matrix(rnorm(n * p), nrow = n, ncol = p) / sqrt(n)
     y <- rbinom(n, 1, plogis(drop(X %*% beta0)))
-    coefs <- glm(y ~ -1 + X, family = binomial(), method = "mdyplFit", alpha = 1 / (1 + kappa)) |> coef()
+    coefs <- fit_mdypl(X, y, alpha = 1 / (1 + kappa)) |> coef()
     data.frame(estimate = coefs,
                kappa = kappa,
                gamma = gamma,
@@ -49,7 +51,7 @@ estimate_s2 <- function(kappa, gamma) {
     beta0 <- sort(sqrt(n) * gamma * beta0 / sqrt(sum(beta0^2)))
     X <- matrix(rnorm(n * p), nrow = n, ncol = p) / sqrt(n)
     y <- rbinom(n, 1, plogis(drop(X %*% beta0)))
-    coefs <- glm(y ~ -1 + X, family = binomial(), method = "mdyplFit", alpha = 1 / (1 + kappa)) |> coef()
+    coefs <- fit_mdypl(X, y, alpha = 1 / (1 + kappa)) |> coef()
     data.frame(estimate = coefs,
                kappa = kappa,
                gamma = gamma,
@@ -75,11 +77,14 @@ if (file.exists(out_file)) {
     ## Add the setting in Rigon and Aliverti (2023, Section 4.3) and another one where the MLE exists
     kg <- rbind(kg, c(0.2, sqrt(0.9)), c(0.04, 4.5))
     mbs <- matrix(NA, ncol = 3, nrow = nrow(kg))
-    se_pars <- c(0.5, 1, 1)
+    se_start <- c(0.5, 1, 1)
     for (i in 1:nrow(kg)) {
         kappa <- kg[i, "kappa"]
+        ckappa <- kappa
         gamma <- kg[i, "gamma"]
-        mbs[i, ] <- se_pars <- solve_se(kappa, gamma, 1/(1 + kappa), start = se_pars)
+        mbs[i, ] <- solve_se(kappa, gamma, 1/(1 + kappa), start = se_start)
+        if (kappa != ckappa)
+            se_start <- se_pars
         cat("kappa =", kappa, "gamma =", gamma, "Done.\n")
     }
     colnames(mbs) <- c("mu", "b", "sigma")

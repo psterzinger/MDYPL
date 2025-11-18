@@ -91,7 +91,7 @@ if (file.exists(out_file)) {
     alpha_grid <- c(seq(0.01, 0.95, length = 60),
                     seq(0.95, 0.99, length = 40))
     n_a <- length(alpha_grid)
-    se_pars <- c(0.8, 0.1, 0.1)
+    se_pars <- c(0.8, 0.2, 0.2)
     kg <- expand.grid(kappa = kappas, gamma = gammas)
     n_kg <- nrow(kg)
     start_sol <- matrix(NA, n_kg, 4)
@@ -100,12 +100,12 @@ if (file.exists(out_file)) {
         gamma <- kg[i, "gamma"]
         alpha <- alpha_grid[1]
         if ((i - 1) %% length(kappas) == 0) {
-            res <- solve_se(kappa, gamma, alpha, start = se_pars,
-                            control = list(ftol = 1e-12))
+            start <- if (i == 1) se_pars else start_sol[i - length(kappas), 1:3]
         } else {
-            res <- solve_se(kappa, gamma, alpha, start = start_sol[i - 1, 1:3],
-                            init_iter = 0, control = list(ftol = 1e-12))
+            start <- start_sol[i - 1, 1:3]
         }
+        res <- solve_se(kappa, gamma, alpha, start = start,
+                        init_iter = 0, control = list(ftol = 1e-12))
         start_sol[i, 1:3] <- res
         start_sol[i, 4] <- max(abs(attr(res, "funcs")))
         cat(i, "/", n_kg, "kappa =", kappa, "gamma =", gamma, "alpha =", alpha,
@@ -121,14 +121,17 @@ if (file.exists(out_file)) {
         start <- start_sol[i, c("mu", "b", "sigma")]
         for (ia in 1:n_a) {
             alpha <- alpha_grid[ia]
-            if (ia == 1) {
-                res <- solve_se(kappa, gamma, alpha, start = start,
-                                control = list(ftol = 1e-12))
-            } else {
-                start <- consts[ia - 1, 1:3]
-                res <- solve_se(kappa, gamma, alpha, start = start, init_iter = 0,
-                                control = list(ftol = 1e-12))
-            }
+            start <- if (ia == 1) start else consts[ia - 1, 1:3]
+            res <- solve_se(kappa, gamma, alpha, start = start, init_iter = 0,
+                            control = list(ftol = 1e-12))
+            ## if (ia == 1) {
+            ##     res <- solve_se(kappa, gamma, alpha, start = start,
+            ##                     control = list(ftol = 1e-12))
+            ## } else {
+            ##     start <- consts[ia - 1, 1:3]
+            ##     res <- solve_se(kappa, gamma, alpha, start = start, init_iter = 0,
+            ##                     control = list(ftol = 1e-12))
+            ## }
             consts[ia, 1:3] <- res
             consts[ia, 4] <- max(abs(attr(res, "funcs")))
             if (ia %% 100 == 0)
