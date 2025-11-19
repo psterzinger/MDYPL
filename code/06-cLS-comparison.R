@@ -41,7 +41,7 @@ simu_X <- function(n, kappa) {
 simu_y <- function(X, beta) {
     n <- nrow(X)
     eta <- drop(X %*% beta)
-    rbinom(n, 1, plgis(eta))
+    rbinom(n, 1, plogis(eta))
 }
 
 cls <- function(X, y, eta, qrX = NULL) {
@@ -84,7 +84,7 @@ mdypl <- function(X, y, alpha, start = NULL, se_start = c(0.5, 1, 1)) {
          unscaled_estimate = coef(ss)[, "Estimate"] * consts[1],
          z_statistic = coef(ss)[, "z value"],
          consts = consts,
-         upsilon = sqrt(ss$signal_strength))
+         ss = ss$signal_strength)
 }
 
 R <- 1000
@@ -99,16 +99,7 @@ nk <- nk |>
 nk$mu <- nk$b <- nk$sigma <- NA
 n_settings <- nrow(nk)
 
-if (all(file.exists(nk$path))) {
-    ## Gather results form images
-    all_estimates <- all_z_statistics <- all_constants <- NULL
-    for (path in nk$path) {
-        load(path)
-        all_estimates <- rbind(all_estimates, estimates)
-        all_z_statistics <- rbind(all_z_statistics, z_statistics)
-        all_constants <- rbind(all_constants, constants)
-    }
-} else {
+if (!all(file.exists(nk$path))) {
     ## General unique seeds
     set.seed(123)
     seeds <- generate_unique_seeds(R * n_settings)
@@ -117,7 +108,7 @@ if (all(file.exists(nk$path))) {
     n_methds <- length(methds)
     stats <-  c("CLS", "CLS [O]", "rescaled MDYPL", "rescaled MDYPL [O]")
     n_stats <- length(stats)
-    for (i in 1:n_settings) {
+    for (i in 8:n_settings) {
         n <- nk[i, "n"]
         kappa <- nk[i, "kappa"]
         ## Get oracle constants and root MSE
@@ -184,7 +175,8 @@ if (all(file.exists(nk$path))) {
         consts <- lapply(mdypl_fits, function(x) {
             co <- x$consts
             data.frame(mu = co[1], b = co[2], sigma = co[3], linf = max(abs(attr(co, "funcs"))),
-                       uspilon = x$upsilon, gamma = gamma, kappa = kappa, N = n, p = p)
+                       upsilon = sqrt(x$ss * co[1]^2 + kappa * co[3]^2),
+                       gamma = gamma, kappa = kappa, N = n, p = p)
         })
         constants <- do.call("rbind", consts) |> mutate(sample = 1:R)
         estimates <- data.frame(estimate = c(beta_cls, beta_cls_oracle, beta_mdypl, beta_mdypl_oracle),
@@ -202,6 +194,14 @@ if (all(file.exists(nk$path))) {
         toc()
         save(nk, constants, estimates, z_statistics, file = nk$path[i])
     }
+}
+
+all_estimates <- all_z_statistics <- all_constants <- NULL
+for (path in nk$path) {
+    load(path)
+    all_estimates <- rbind(all_estimates, estimates)
+    all_z_statistics <- rbind(all_z_statistics, z_statistics)
+    all_constants <- rbind(all_constants, constants)
 }
 
 methods_ordered <- c("CLS [O]", "CLS", "rescaled MDYPL [O]", "rescaled MDYPL", "MDYPL")
