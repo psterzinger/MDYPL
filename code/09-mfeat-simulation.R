@@ -129,9 +129,12 @@ qqplots <- ggplot(subset(results, linf < 1e-07)) +
                 linetype = 2, linewidth = 0.5) +
     facet_grid(gammasq_fac ~ beta0_fac, labeller = label_parsed) +
     scale_color_grey(start = 0.6, end = 0.3) +
+    scale_y_continuous(breaks = seq(0, 100, by = 25)) +
+    scale_x_continuous(breaks = seq(0, 100, by = 25)) +
     theme_minimal() +
-    theme(legend.position = "top")
+    theme(legend.position = "bottom")
 
-pdf(file.path(figures_path, "case-study-qqplots.pdf"), width = 4, height = 4)
+pdf(file.path(figures_path, "case-study-qqplots.pdf"), width = 4.5, height = 4.5)
 print(qqplots)
 dev.off()
+
