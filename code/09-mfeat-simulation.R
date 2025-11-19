@@ -116,7 +116,7 @@ if (file.exists(out_file)) {
                                        levels = gammasq_levs,
                                        ordered = TRUE))
 
-    save(results, file = out_file)
+    save(degrees, results, file = out_file)
 }
 
 
