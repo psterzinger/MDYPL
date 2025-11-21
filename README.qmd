@@ -32,22 +32,8 @@ R_pkgs_v <- R_pkgs |> transform(Version = sapply(R_pkgs$Package, function(pkg)
 rownames(R_pkgs_v) <- NULL
 ```
 
-```{r}
-#| echo: false
-#| message: false
-julia_pkgs <- data.frame(Package = sort(c("ColorSchemes", "Cuba", "DataFrames", "Distributions",
-                                          "FastGaussQuadrature", "FiniteDiff", "InvertedIndices", "JLD2",
-                                          "LaTeXStrings", "LineSearches", "NLsolve", "NonlinearSolve",
-                                          "Optim", "Plots", "PrettyTables", "PrettyTables", "ProgressMeter",
-                                          "RCall", "Roots", "SciMLBase", "StatsBase")))
-julia_v <- JuliaCall::julia_eval("string(VERSION)")
-julia_pkgs_v <- julia_pkgs |> transform(Version = sapply(julia_pkgs$Package, julia_installed_package))
-rownames(julia_pkgs_v) <- NULL
-```
-
-
-The directory `code/` contains the R and Julia scripts that reproduce
-all the numerical results and figures in the manuscript
+The directory `code/` contains the R scripts that reproduce all the
+numerical results and figures in the manuscript
 
 > Sterzinger P, Kosmidis I (2024). Diaconis-Ylvisaker prior penalized likelihood for $p/n \to \kappa \in (0,1)$ logistic regression. https://arxiv.org/abs/2311.07419
 
@@ -69,85 +55,67 @@ packages
 #| echo: false
 tt(R_pkgs_v)
 ```
-and Julia version `{r} julia_v` and the contributed packages
-```{r}
-#| echo: false
-tt(julia_pkgs_v)
-```
 
 # Reproducing the results
-
 
 ## Path
 
 All scripts specify the path to the supplementary material path as
 `supp_path`. This is currently set to `.` assuming that the working
-directory for Julia and R is set to the current `git` repository. If
-this is not the case for your setup, you should set `supp_path`
-appropriately.
+directory in R is set to the current `git` repository. If this is not the
+case for your setup, you should set `supp_path` appropriately.
 
 ## Parallel computation
 
-In each of the R and Julia scripts relying on parallel computation,
-`n_cores` (currently set to `10`) sets the number of cores to use.
+In each of the R scripts relying on parallel computation, `n_cores`
+(currently set to `10`) sets the number of cores to use.
 
-Computation on the R scripts that require it relies on parallel
-computing, which is implemented through the `parallel` R package. The
-script will not work on Windows unless `n_cores <- 1` (which will lead
-in long compute times and is not recommended) or it is modified to use
-a different parallel back-end. All results should be reproducible in
-Unix-based systems (e.g. macOS and Linux). 
-
-Parallel computing in the Julia scripts uses the Julia packages
-`Distributed` and `Threads`. See [Parallel
-Computing](https://docs.julialang.org/en/v1/manual/parallel-computing/)
-in Julia's documentation for more details, and for setting the number
-of threads.
+Computation in several of the R scripts relies on parallel computing,
+which is implemented through the `parallel` R package. The script will
+not work on Windows unless `n_cores <- 1` (which will lead in long
+compute times and is not recommended) or it is modified to use a
+different parallel back-end. All results should be reproducible in
+Unix-based systems (e.g. macOS and Linux).
 
 ## Details
 
-The following table lists the R and Julia scripts that need to be
-executed in order to reproduce the results. The table also lists the
-outputs from each script, and their label if they are shown in the
-main text or the Supplementary Material document. Some of the outputs
-are intermediate results, so the scripts should be executed in the
-order shown.
+The following table lists the R scripts that need to be executed in
+order to reproduce the results. The table also lists the outputs from
+each script, and their label if they are shown in the main text or the
+Supplementary Material document. Some of the outputs are intermediate
+results, so the scripts should be executed in the order shown.
 
 
-| Script                                                                                        | Output                                                                                 | Label     |
-|-----------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------|-----------|
-| [01-1-rescaled-mDYPL-estimators-1.jl](code/01-1-rescaled-mDYPL-estimators-1.jl)               | [rescaled-mDYPL-estimates-figure-1.rda](results/rescaled-mDYPL-estimates-figure-1.rda) |           |
-| [01-1-rescaled-mDYPL-estimators-2.jl](code/01-1-rescaled-mDYPL-estimators-2.jl)               | [rescaled-mDYPL-estimates-figure-2.rda](results/rescaled-mDYPL-estimates-figure-2.rda) |           |
-| [01-2-rescaled-mDYPL-estimators-outputs-1.R](code/01-2-rescaled-mDYPL-estimators-outputs-1.R) | [mdypl-vs-truth-1.pdf](figures/mdypl-vs-truth-1.pdf)                                   | Figure 1  |
-| [01-2-rescaled-mDYPL-estimators-outputs-2.R](code/01-2-rescaled-mDYPL-estimators-outputs-2.R) | [mdypl-vs-truth-2.pdf](figures/mdypl-vs-truth-2.pdf)                                   | Figure S1 |
-| [02-1-rescaled-PLR-statistics.jl](code/02-1-rescaled-PLR-statistics.jl)                       | [qqplots-rescaled-plr.rda](results/qqplots-rescaled-plr.rda)                           |           |
-| [02-2-rescaled-PLR-statistics-outputs.R](code/02-2-rescaled-PLR-statistics-outputs.R)         | [qqplots-rescaled-plr.pdf](figures/qqplots-rescaled-plr.pdf)                           | Figure 2  |
-| [03-1-abias-amse.jl](code/03-1-abias-amse.jl)                                                 | [abias-amse.rda](results/abias-amse.rda)                                               |           |
-| [03-2-abias-amse-outputs.R](code/03-2-abias-amse-outputs.R)                                   | [abias-amse.pdf](figures/abias-amse.pdf)                                               | Figure 3  |
-| [04-adaptive-shrinkage-table.jl](code/04-adaptive-shrinkage-table.jl)                         |                                                                                        | Table 1   |
-| [05-1-min-mse.jl](code/05-1-min-mse.jl)                                                       | [alpha-min-mse.rda](results/alpha-min-mse.rda)                                         |           |
-| [05-2-mu=1.jl](code/05-2-mu=1.jl)                                                             | [mu=1.rda](results/mu=1.rda)                                                           |           |
-| [05-3-mu=1-outputs.R](code/05-3-mu=1-outputs.R)                                               | [alpha-unbiased-min-mse.pdf](figures/alpha-unbiased-min-mse.pdf)                       | Figure 4  |
-| [06-1-cLS-comparison.jl](code/06-1-cLS-comparison.jl)                                         | [cLS-MDYPL-comparison-*.rda](results/)                                                 |           |
-| [06-2-cLS-comparison-outputs.R](code/06-2-cLS-comparison-outputs.R)                           | [cLS-vs-mDYPL-estimation-inference.pdf](figures/cLS-vs-mDYPL-estimation-inference.pdf) | Figure 5  |
-| [07-1-min-mse-ml-mdypl-ridge.jl](code/07-1-min-mse-ml-mdypl-ridge.jl)                         | [state_evolution_mDYPL.rda](results/state_evolution_mDYPL.rda)                         |           |
-|                                                                                               | [state_evolution_ridge.rda](results/state_evolution_ridge.rda)                         |           |
-|                                                                                               | [state_evolution_ML.rda](results/state_evolution_ML.rda)                               |           |
-| [07-2-min-mse-ml-mdypl-ridge-outputs.R](code/07-2-min-mse-ml-mdypl-ridge-outputs.R)           | [rlr_mse_scaled_plots.pdf](figures/rlr_mse_scaled_plots.pdf)                           | Figure 6  |
-| [08-1-intercept-simul-quantile-tables.jl](code/08-1-intercept-simul-quantile-tables.jl)       | [intercept_simul-plr-stat-quants.csv](results/intercept_simul-plr-stat-quants.csv)     |           |
-|                                                                                               | [intercept-simul-z-stat-quants.csv](results/intercept-simul-z-stat-quants.csv)         |           |
-|                                                                                               |                                                                                        | Table 2   |
-|                                                                                               |                                                                                        | Table S1  |
-|                                                                                               |                                                                                        | Table S2  |
-| [09-1-mfeat-case-study.R](code/09-1-mfeat-case-study.R)                                       | [case-study-probs.pdf](figures/case-study-probs.pdf)                                   | Figure 7  |
-| [09-2-mfeat-simulation.R](code/09-2-mfeat-simulation.R)                                       | [fou+kar-simu*.rda](results/)                                                          |           |
-| [09-3-mfeat-simulation-outputs.R](code/09-3-mfeat-simulation-outputs.R)                       | [case-study-qqplots.pdf](figures/case-study-qqplots.pdf)                               | Figure 7  |
-| [10-beta-norm-simul.jl](code/10-beta-norm-simul.jl)                                           | [beta_l2_length*.jld2](results/)                                                       |           |
-|                                                                                               | [beta_norm_alphas.pdf](figures/beta_norm_alphas.pdf)                                   | Figure S2 |
-|                                                                                               | [beta_norm.pdf](figures/beta_norm.pdf)                                                 | Figure S2 |
-| [11-1-eta-bounds.jl](code/11-1-eta-bounds.jl)                                                 | [upsilon-gamma.rda](results/upsilon-gamma.rda)                                         |           |
-| [11-2-eta-gamma-outputs.R](code/11-2-eta-gamma-outputs.R)                                     | [cLS-MDYPL-upsilon.pdf](figures/cLS-MDYPL-upsilon.pdf)                                 | Figure S3 |
-|                                                                                               | [upsilon-gamma.pdf](figures/upsilon-gamma.pdf)                                         | Figure 8  |
+| Script                                                                            | Output                                                                                             | Label  |
+|-----------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------|--------|
+| [01-rescaled-mDYPL-estimators.R](code/01-rescaled-mDYPL-estimators.R)             | [rescaled-mDYPL-estimates.rda](rescaled-mDYPL-estimates.rda)                                       |        |
+|                                                                                   | [mdypl-vs-truth-1.pdf](figures/mdypl-vs-truth-1.pdf)                                               | Figure |
+|                                                                                   | [mdypl-vs-truth-2.pdf](figures/mdypl-vs-truth-2.pdf)                                               | Figure |
+| [02-rescaled-PLR-statistics.R](code/02-rescaled-PLR-statistics.R)                 | [qqplots-rescaled-plr.rda](results/qqplots-rescaled-plr.rda)                                       |        |
+|                                                                                   | [qqplots-rescaled-plr.pdf](figures/qqplots-rescaled-plr.pdf)                                       | Figure |
+| [03-abias-amse.R](code/03-abias-amse.R)                                           | [abias-amse.rda](results/abias-amse.rda)                                                           |        |
+|                                                                                   | [abias-amse.pdf](figures/abias-amse.pdf)                                                           | Figure |
+| [04-adaptive-shrinkage-table.R](code/04-adaptive-shrinkage-table.R)               |                                                                                                    | Table  |
+| [05-2-mu=1.R](code/05-mu=1.R)                                                     | [mu=1.rda](results/mu=1.rda)                                                                       |        |
+|                                                                                   | [alpha-unbiased-min-mse.pdf](figures/alpha-unbiased-min-mse.pdf)                                   | Figure |
+| [06-cLS-comparison.R](code/06-cLS-comparison.R)                                   | [cLS-MDYPL-comparison-*.rda](results/)                                                             |        |
+|                                                                                   | [cLS-vs-mDYPL-estimation-inference.pdf](figures/cLS-vs-mDYPL-estimation-inference.pdf)             | Figure |
+| [07-min-mse-ml-mdypl-ridge.R](code/07-min-mse-ml-mdypl-ridge.R)                   | [min_mse.rda](results/min_mse.rda)                                                                 |        |
+|                                                                                   | [rlr_mse_scaled_plots.pdf](figures/rlr_mse_scaled_plots.pdf)                                       | Figure |
+| [08-intercept-simul-quantile-tables.R](code/08-intercept-simul-quantile-tables.R) | [intercept-simu-statistics.rda](results/intercept-simu-statistics.rda)                             | Table  |
+|                                                                                   |                                                                                                    | Table  |
+|                                                                                   |                                                                                                    | Table  |
+| [09-mfeat-case-study.R](code/09-mfeat-case-study.R)                               | [case-study-probs.pdf](figures/case-study-probs.pdf)                                               | Figure |
+| [09-mfeat-simulation.R](code/09-mfeat-simulation.R)                               | [mfeat-simu.rda](results/mfeat-simu.rda)                                                           |        |
+|                                                                                   | [case-study-qqplots.pdf](figures/case-study-qqplots.pdf)                                           | Figure |
+| [10-eta-bounds.R](code/10-eta-bounds.R)                                           | [upsilon-gamma.rda](results/upsilon-gamma.rda)                                                     |        |
+|                                                                                   | [cLS-MDYPL-upsilon.pdf](figures/cLS-MDYPL-upsilon.pdf)                                             | Figure |
+|                                                                                   | [upsilon-gamma.pdf](figures/upsilon-gamma.pdf)                                                     | Figure |
+| [11-Bradley-Terry-with-missingness.R](11-Bradley-Terry-with-missingness.R)        | [BT-MAR-kappa0.2-gamma-4-alpha-0.7-R-200.rda](results/BT-MAR-kappa0.2-gamma-4-alpha-0.7-R-200.rda) |        |
+|                                                                                   | [bt-centred-estimates.pdf](figures/bt-centred-estimates.pdf)                                       | Figure |
+|                                                                                   | [bt-inf.pdf](figures/bt-inf.pdf)                                                                   | Figure |
+|                                                                                   | [bt-qqplots.pdf](figures/bt-qqplots.pdf)                                                           | Figure |
+
 
 
 

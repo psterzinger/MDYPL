@@ -1,7 +1,6 @@
 supp_path <- "."
 figures_path <- file.path(supp_path, "figures")
 results_path <- file.path(supp_path, "results")
-out_file <- file.path(results_path, "rescaled-mDYPL-estimates.rda")
 n_cores <- 10
 
 library("dplyr")

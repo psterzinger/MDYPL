@@ -1,12 +1,11 @@
 # Supplementary material for “Diaconis-Ylvisaker prior penalized likelihood for *p*/*n* → *κ* ∈ (0, 1) logistic regression”
-
 Philipp Sterzinger, Ioannis Kosmidis
-December 16, 2024
+November 21, 2025
 
 # Directory structure
 
-The directory `code/` contains the R and Julia scripts that reproduce
-all the numerical results and figures in the manuscript
+The directory `code/` contains the R scripts that reproduce all the
+numerical results and figures in the manuscript
 
 > Sterzinger P, Kosmidis I (2024). Diaconis-Ylvisaker prior penalized
 > likelihood for *p*/*n* → *κ* ∈ (0, 1) logistic regression.
@@ -26,7 +25,7 @@ produce.
 
 # R version and contributed packages
 
-All results are reproducible using R version 4.4.2 (2024-10-31) and the
+All results are reproducible using R version 4.5.1 (2025-06-13) and the
 contributed packages
 
 <table style="width:40%;">
@@ -43,7 +42,7 @@ contributed packages
 <tbody>
 <tr>
 <td>colorspace</td>
-<td>2.1-1</td>
+<td>2.1-2</td>
 </tr>
 <tr>
 <td>detectseparation</td>
@@ -55,15 +54,15 @@ contributed packages
 </tr>
 <tr>
 <td>ggplot2</td>
-<td>3.5.1</td>
+<td>4.0.0</td>
 </tr>
 <tr>
 <td>ggpp</td>
-<td>0.5.8-1</td>
+<td>0.5.9</td>
 </tr>
 <tr>
 <td>glmnet</td>
-<td>4.1-8</td>
+<td>4.1-10</td>
 </tr>
 <tr>
 <td>lmtest</td>
@@ -71,112 +70,11 @@ contributed packages
 </tr>
 <tr>
 <td>patchwork</td>
-<td>1.3.0</td>
+<td>1.3.2</td>
 </tr>
 <tr>
 <td>tidyr</td>
 <td>1.3.1</td>
-</tr>
-</tbody>
-</table>
-
-and Julia version 1.10.6 and the contributed packages
-
-<table style="width:46%;">
-<colgroup>
-<col style="width: 30%" />
-<col style="width: 15%" />
-</colgroup>
-<thead>
-<tr>
-<th>Package</th>
-<th>Version</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>ColorSchemes</td>
-<td>3.27.1</td>
-</tr>
-<tr>
-<td>Cuba</td>
-<td>2.3.0</td>
-</tr>
-<tr>
-<td>DataFrames</td>
-<td>1.7.0</td>
-</tr>
-<tr>
-<td>Distributions</td>
-<td>0.25.114</td>
-</tr>
-<tr>
-<td>FastGaussQuadrature</td>
-<td>1.0.2</td>
-</tr>
-<tr>
-<td>FiniteDiff</td>
-<td>2.26.2</td>
-</tr>
-<tr>
-<td>InvertedIndices</td>
-<td>1.3.1</td>
-</tr>
-<tr>
-<td>JLD2</td>
-<td>0.5.10</td>
-</tr>
-<tr>
-<td>LaTeXStrings</td>
-<td>1.4.0</td>
-</tr>
-<tr>
-<td>LineSearches</td>
-<td>7.3.0</td>
-</tr>
-<tr>
-<td>NLsolve</td>
-<td>4.5.1</td>
-</tr>
-<tr>
-<td>NonlinearSolve</td>
-<td>4.2.0</td>
-</tr>
-<tr>
-<td>Optim</td>
-<td>1.10.0</td>
-</tr>
-<tr>
-<td>Plots</td>
-<td>1.40.9</td>
-</tr>
-<tr>
-<td>PrettyTables</td>
-<td>2.4.0</td>
-</tr>
-<tr>
-<td>PrettyTables</td>
-<td>2.4.0</td>
-</tr>
-<tr>
-<td>ProgressMeter</td>
-<td>1.10.2</td>
-</tr>
-<tr>
-<td>RCall</td>
-<td>0.14.6</td>
-</tr>
-<tr>
-<td>Roots</td>
-<td>2.2.2</td>
-</tr>
-<tr>
-<td>SciMLBase</td>
-<td>2.68.1</td>
-</tr>
-<tr>
-<td>StatsBase</td>
-<td>0.34.4</td>
 </tr>
 </tbody>
 </table>
@@ -187,42 +85,34 @@ and Julia version 1.10.6 and the contributed packages
 
 All scripts specify the path to the supplementary material path as
 `supp_path`. This is currently set to `.` assuming that the working
-directory for Julia and R is set to the current `git` repository. If
-this is not the case for your setup, you should set `supp_path`
-appropriately.
+directory in R is set to the current `git` repository. If this is not
+the case for your setup, you should set `supp_path` appropriately.
 
 ## Parallel computation
 
-In each of the R and Julia scripts relying on parallel computation,
-`n_cores` (currently set to `10`) sets the number of cores to use.
+In each of the R scripts relying on parallel computation, `n_cores`
+(currently set to `10`) sets the number of cores to use.
 
-Computation on the R scripts that require it relies on parallel
-computing, which is implemented through the `parallel` R package. The
-script will not work on Windows unless `n_cores <- 1` (which will lead
-in long compute times and is not recommended) or it is modified to use a
+Computation in several of the R scripts relies on parallel computing,
+which is implemented through the `parallel` R package. The script will
+not work on Windows unless `n_cores <- 1` (which will lead in long
+compute times and is not recommended) or it is modified to use a
 different parallel back-end. All results should be reproducible in
 Unix-based systems (e.g. macOS and Linux).
 
-Parallel computing in the Julia scripts uses the Julia packages
-`Distributed` and `Threads`. See [Parallel
-Computing](https://docs.julialang.org/en/v1/manual/parallel-computing/)
-in Julia’s documentation for more details, and for setting the number of
-threads.
-
 ## Details
 
-The following table lists the R and Julia scripts that need to be
-executed in order to reproduce the results. The table also lists the
-outputs from each script, and their label if they are shown in the main
-text or the Supplementary Material document. Some of the outputs are
-intermediate results, so the scripts should be executed in the order
-shown.
+The following table lists the R scripts that need to be executed in
+order to reproduce the results. The table also lists the outputs from
+each script, and their label if they are shown in the main text or the
+Supplementary Material document. Some of the outputs are intermediate
+results, so the scripts should be executed in the order shown.
 
 <table>
 <colgroup>
-<col style="width: 48%" />
-<col style="width: 45%" />
-<col style="width: 5%" />
+<col style="width: 43%" />
+<col style="width: 52%" />
+<col style="width: 4%" />
 </colgroup>
 <thead>
 <tr>
@@ -234,194 +124,155 @@ shown.
 <tbody>
 <tr>
 <td><a
-href="code/01-1-rescaled-mDYPL-estimators-1.jl">01-1-rescaled-mDYPL-estimators-1.jl</a></td>
+href="code/01-rescaled-mDYPL-estimators.R">01-rescaled-mDYPL-estimators.R</a></td>
 <td><a
-href="results/rescaled-mDYPL-estimates-figure-1.rda">rescaled-mDYPL-estimates-figure-1.rda</a></td>
+href="rescaled-mDYPL-estimates.rda">rescaled-mDYPL-estimates.rda</a></td>
 <td></td>
 </tr>
 <tr>
-<td><a
-href="code/01-1-rescaled-mDYPL-estimators-2.jl">01-1-rescaled-mDYPL-estimators-2.jl</a></td>
-<td><a
-href="results/rescaled-mDYPL-estimates-figure-2.rda">rescaled-mDYPL-estimates-figure-2.rda</a></td>
 <td></td>
-</tr>
-<tr>
-<td><a
-href="code/01-2-rescaled-mDYPL-estimators-outputs-1.R">01-2-rescaled-mDYPL-estimators-outputs-1.R</a></td>
 <td><a href="figures/mdypl-vs-truth-1.pdf">mdypl-vs-truth-1.pdf</a></td>
-<td>Figure 1</td>
+<td>Figure</td>
 </tr>
 <tr>
-<td><a
-href="code/01-2-rescaled-mDYPL-estimators-outputs-2.R">01-2-rescaled-mDYPL-estimators-outputs-2.R</a></td>
+<td></td>
 <td><a href="figures/mdypl-vs-truth-2.pdf">mdypl-vs-truth-2.pdf</a></td>
-<td>Figure S1</td>
+<td>Figure</td>
 </tr>
 <tr>
 <td><a
-href="code/02-1-rescaled-PLR-statistics.jl">02-1-rescaled-PLR-statistics.jl</a></td>
+href="code/02-rescaled-PLR-statistics.R">02-rescaled-PLR-statistics.R</a></td>
 <td><a
 href="results/qqplots-rescaled-plr.rda">qqplots-rescaled-plr.rda</a></td>
 <td></td>
 </tr>
 <tr>
-<td><a
-href="code/02-2-rescaled-PLR-statistics-outputs.R">02-2-rescaled-PLR-statistics-outputs.R</a></td>
+<td></td>
 <td><a
 href="figures/qqplots-rescaled-plr.pdf">qqplots-rescaled-plr.pdf</a></td>
-<td>Figure 2</td>
+<td>Figure</td>
 </tr>
 <tr>
-<td><a href="code/03-1-abias-amse.jl">03-1-abias-amse.jl</a></td>
+<td><a href="code/03-abias-amse.R">03-abias-amse.R</a></td>
 <td><a href="results/abias-amse.rda">abias-amse.rda</a></td>
 <td></td>
 </tr>
 <tr>
-<td><a
-href="code/03-2-abias-amse-outputs.R">03-2-abias-amse-outputs.R</a></td>
+<td></td>
 <td><a href="figures/abias-amse.pdf">abias-amse.pdf</a></td>
-<td>Figure 3</td>
+<td>Figure</td>
 </tr>
 <tr>
 <td><a
-href="code/04-adaptive-shrinkage-table.jl">04-adaptive-shrinkage-table.jl</a></td>
+href="code/04-adaptive-shrinkage-table.R">04-adaptive-shrinkage-table.R</a></td>
 <td></td>
-<td>Table 1</td>
+<td>Table</td>
 </tr>
 <tr>
-<td><a href="code/05-1-min-mse.jl">05-1-min-mse.jl</a></td>
-<td><a href="results/alpha-min-mse.rda">alpha-min-mse.rda</a></td>
-<td></td>
-</tr>
-<tr>
-<td><a href="code/05-2-mu=1.jl">05-2-mu=1.jl</a></td>
+<td><a href="code/05-mu=1.R">05-2-mu=1.R</a></td>
 <td><a href="results/mu=1.rda">mu=1.rda</a></td>
 <td></td>
 </tr>
 <tr>
-<td><a href="code/05-3-mu=1-outputs.R">05-3-mu=1-outputs.R</a></td>
+<td></td>
 <td><a
 href="figures/alpha-unbiased-min-mse.pdf">alpha-unbiased-min-mse.pdf</a></td>
-<td>Figure 4</td>
+<td>Figure</td>
 </tr>
 <tr>
-<td><a
-href="code/06-1-cLS-comparison.jl">06-1-cLS-comparison.jl</a></td>
+<td><a href="code/06-cLS-comparison.R">06-cLS-comparison.R</a></td>
 <td><a href="results/">cLS-MDYPL-comparison-*.rda</a></td>
 <td></td>
 </tr>
 <tr>
-<td><a
-href="code/06-2-cLS-comparison-outputs.R">06-2-cLS-comparison-outputs.R</a></td>
+<td></td>
 <td><a
 href="figures/cLS-vs-mDYPL-estimation-inference.pdf">cLS-vs-mDYPL-estimation-inference.pdf</a></td>
-<td>Figure 5</td>
+<td>Figure</td>
 </tr>
 <tr>
 <td><a
-href="code/07-1-min-mse-ml-mdypl-ridge.jl">07-1-min-mse-ml-mdypl-ridge.jl</a></td>
-<td><a
-href="results/state_evolution_mDYPL.rda">state_evolution_mDYPL.rda</a></td>
-<td></td>
-</tr>
-<tr>
-<td></td>
-<td><a
-href="results/state_evolution_ridge.rda">state_evolution_ridge.rda</a></td>
+href="code/07-min-mse-ml-mdypl-ridge.R">07-min-mse-ml-mdypl-ridge.R</a></td>
+<td><a href="results/min_mse.rda">min_mse.rda</a></td>
 <td></td>
 </tr>
 <tr>
 <td></td>
-<td><a
-href="results/state_evolution_ML.rda">state_evolution_ML.rda</a></td>
-<td></td>
-</tr>
-<tr>
-<td><a
-href="code/07-2-min-mse-ml-mdypl-ridge-outputs.R">07-2-min-mse-ml-mdypl-ridge-outputs.R</a></td>
 <td><a
 href="figures/rlr_mse_scaled_plots.pdf">rlr_mse_scaled_plots.pdf</a></td>
-<td>Figure 6</td>
+<td>Figure</td>
 </tr>
 <tr>
 <td><a
-href="code/08-1-intercept-simul-quantile-tables.jl">08-1-intercept-simul-quantile-tables.jl</a></td>
+href="code/08-intercept-simul-quantile-tables.R">08-intercept-simul-quantile-tables.R</a></td>
 <td><a
-href="results/intercept_simul-plr-stat-quants.csv">intercept_simul-plr-stat-quants.csv</a></td>
-<td></td>
-</tr>
-<tr>
-<td></td>
-<td><a
-href="results/intercept-simul-z-stat-quants.csv">intercept-simul-z-stat-quants.csv</a></td>
-<td></td>
+href="results/intercept-simu-statistics.rda">intercept-simu-statistics.rda</a></td>
+<td>Table</td>
 </tr>
 <tr>
 <td></td>
 <td></td>
-<td>Table 2</td>
+<td>Table</td>
 </tr>
 <tr>
 <td></td>
 <td></td>
-<td>Table S1</td>
+<td>Table</td>
 </tr>
 <tr>
-<td></td>
-<td></td>
-<td>Table S2</td>
-</tr>
-<tr>
-<td><a
-href="code/09-1-mfeat-case-study.R">09-1-mfeat-case-study.R</a></td>
+<td><a href="code/09-mfeat-case-study.R">09-mfeat-case-study.R</a></td>
 <td><a href="figures/case-study-probs.pdf">case-study-probs.pdf</a></td>
-<td>Figure 7</td>
+<td>Figure</td>
 </tr>
 <tr>
-<td><a
-href="code/09-2-mfeat-simulation.R">09-2-mfeat-simulation.R</a></td>
-<td><a href="results/">fou+kar-simu*.rda</a></td>
+<td><a href="code/09-mfeat-simulation.R">09-mfeat-simulation.R</a></td>
+<td><a href="results/mfeat-simu.rda">mfeat-simu.rda</a></td>
 <td></td>
 </tr>
 <tr>
-<td><a
-href="code/09-3-mfeat-simulation-outputs.R">09-3-mfeat-simulation-outputs.R</a></td>
+<td></td>
 <td><a
 href="figures/case-study-qqplots.pdf">case-study-qqplots.pdf</a></td>
-<td>Figure 7</td>
+<td>Figure</td>
 </tr>
 <tr>
-<td><a href="code/10-beta-norm-simul.jl">10-beta-norm-simul.jl</a></td>
-<td><a href="results/">beta_l2_length*.jld2</a></td>
-<td></td>
-</tr>
-<tr>
-<td></td>
-<td><a href="figures/beta_norm_alphas.pdf">beta_norm_alphas.pdf</a></td>
-<td>Figure S2</td>
-</tr>
-<tr>
-<td></td>
-<td><a href="figures/beta_norm.pdf">beta_norm.pdf</a></td>
-<td>Figure S2</td>
-</tr>
-<tr>
-<td><a href="code/11-1-eta-bounds.jl">11-1-eta-bounds.jl</a></td>
+<td><a href="code/10-eta-bounds.R">10-eta-bounds.R</a></td>
 <td><a href="results/upsilon-gamma.rda">upsilon-gamma.rda</a></td>
 <td></td>
 </tr>
 <tr>
-<td><a
-href="code/11-2-eta-gamma-outputs.R">11-2-eta-gamma-outputs.R</a></td>
+<td></td>
 <td><a
 href="figures/cLS-MDYPL-upsilon.pdf">cLS-MDYPL-upsilon.pdf</a></td>
-<td>Figure S3</td>
+<td>Figure</td>
 </tr>
 <tr>
 <td></td>
 <td><a href="figures/upsilon-gamma.pdf">upsilon-gamma.pdf</a></td>
-<td>Figure 8</td>
+<td>Figure</td>
+</tr>
+<tr>
+<td><a
+href="11-Bradley-Terry-with-missingness.R">11-Bradley-Terry-with-missingness.R</a></td>
+<td><a
+href="results/BT-MAR-kappa0.2-gamma-4-alpha-0.7-R-200.rda">BT-MAR-kappa0.2-gamma-4-alpha-0.7-R-200.rda</a></td>
+<td></td>
+</tr>
+<tr>
+<td></td>
+<td><a
+href="figures/bt-centred-estimates.pdf">bt-centred-estimates.pdf</a></td>
+<td>Figure</td>
+</tr>
+<tr>
+<td></td>
+<td><a href="figures/bt-inf.pdf">bt-inf.pdf</a></td>
+<td>Figure</td>
+</tr>
+<tr>
+<td></td>
+<td><a href="figures/bt-qqplots.pdf">bt-qqplots.pdf</a></td>
+<td>Figure</td>
 </tr>
 </tbody>
 </table>
