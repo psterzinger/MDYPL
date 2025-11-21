@@ -1,6 +1,6 @@
 supp_path = "."
 figures_path <- file.path(supp_path, "figures")
-results_path = file.path(supp_path, "results/new")
+results_path = file.path(supp_path, "results")
 n_cores <- 10
 
 library("parallel")
