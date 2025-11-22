@@ -21,8 +21,8 @@ format: md
 #| echo: false
 #| message: false
 library("tinytable")
-library("JuliaCall")
-R_pkgs <- data.frame(Package = sort(c("dplyr", "ggplot2", "colorspace", "ggpp", "patchwork", "tidyr", "lmtest", "detectseparation", "glmnet")))
+R_pkgs <- data.frame(Package = sort(c("dplyr", "ggplot2", "ggpp", "patchwork", "RcppNumerical", "brglm2",
+                                      "nleqslv")))
 for (pkg in R_pkgs$Package)
     library(pkg, character.only = TRUE)
 s_info <- sessionInfo()

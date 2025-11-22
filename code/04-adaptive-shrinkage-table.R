@@ -8,8 +8,7 @@ library("ggplot2")
 library("patchwork")
 library("parallel")
 library("RcppNumerical")
-## library("brglm2")
-devtools::load_all("~/Repositories/brglm2")
+library("brglm2")
 
 source(file.path(supp_path, "code/methods/compute-pt.R"))
 source(file.path(supp_path, "code/methods/generate-unique-seeds.R"))
@@ -36,7 +35,6 @@ estimate_s <- function(setting) {
     beta0 <- sort(sqrt(n) * gamma * beta0 / sqrt(sum(beta0^2)))
     X <- matrix(rnorm(n * p), nrow = n, ncol = p) / sqrt(n)
     y <- rbinom(n, 1, plogis(drop(X %*% beta0)))
-    ## coefs <- glm(y ~ -1 + X, family = binomial(), method = "mdyplFit", alpha = 1 / (1 + kappa)) |> coef()
     coefs <- fit_mdypl(X, y, alpha = 1 / (1 + kappa)) |> coef()
     data.frame(estimate = coefs,
                kappa = kappa,

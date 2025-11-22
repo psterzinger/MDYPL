@@ -4,14 +4,13 @@ results_path <- file.path(supp_path, "results")
 out_file <- file.path(results_path, "rescaled-mDYPL-estimates.rda")
 n_cores <- 10
 
+library("parallel")
 library("dplyr")
 library("ggplot2")
 library("ggpp")
 library("patchwork")
-library("parallel")
 library("RcppNumerical")
-## library("brglm2")
-devtools::load_all("~/Repositories/brglm2")
+library("brglm2")
 
 source(file.path(supp_path, "code/methods/plot-with-insets.R"))
 source(file.path(supp_path, "code/methods/compute-pt.R"))
