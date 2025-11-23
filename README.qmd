@@ -22,7 +22,7 @@ format: md
 #| message: false
 library("tinytable")
 R_pkgs <- data.frame(Package = sort(c("dplyr", "ggplot2", "ggpp", "patchwork", "RcppNumerical", "brglm2",
-                                      "nleqslv")))
+                                      "nleqslv", "mvtnorm", "glmnet", "tictoc")))
 for (pkg in R_pkgs$Package)
     library(pkg, character.only = TRUE)
 s_info <- sessionInfo()

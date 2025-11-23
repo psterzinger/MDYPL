@@ -8,11 +8,10 @@ library("dplyr")
 library("ggplot2")
 library("patchwork")
 library("parallel")
-## library("brglm2")
-devtools::load_all("~/Repositories/brglm2")
+library("brglm2")
+library("nleqslv")
 
 source(file.path(supp_path, "code/methods/compute-pt.R"))
-source(file.path(supp_path, "code/methods/generate-unique-seeds.R"))
 
 
 c2u <- function(pars) {
@@ -41,10 +40,11 @@ alpha_mu_one <- function(start, kappa, gamma, prox_tol = 1e-10) {
     out
 }
 
-alpha_min_mse <- function(start, kappa, gamma, int = c(0, 1), init_iter = 0) {
+alpha_min_mse <- function(start, kappa, gamma, int = c(0, 1), init_iter = 0,
+                          prox_tol = 1e-10) {
     g <- function(alpha) {
         pars <- solve_se(kappa, gamma, alpha, start = start, init_iter = init_iter,
-                         control = list(ftol = 1e-12))
+                         control = list(ftol = 1e-12), prox_tol = prox_tol)
         pars[3] / pars[1]
     }
     optimise(g, int, tol = 1e-08)$minimum
@@ -112,6 +112,7 @@ if (file.exists(out_file)) {
             "linf", max(start_sol[, 4], na.rm = TRUE), "\n")
     }
     colnames(start_sol) <- c("mu", "b", "sigma", "linf")
+
     ## Get solutions for all alphas
     results <- mclapply(1:n_kg, function(i) {
         kappa <- kg[i, "kappa"]
@@ -157,11 +158,11 @@ if (file.exists(out_file)) {
         mu <- cpars$mu
         b <- cpars$b
         sigma <- cpars$sigma
-        int <- alpha + c(-0.1, 0.1)
+        int <- alpha + c(-0.05, 0.05)
         int[int < 0] <- 0.001
         int[int > 1] <- 0.999
         out <- alpha_min_mse(c(mu, b, sigma), kappa, gamma, int = int,
-                             init_iter = 10)
+                             init_iter = 0, prox_tol = 1e-09)
         cat(i, round(c(out, alpha), 3), "\n")
         out
     }, mc.cores = n_cores)
@@ -197,7 +198,6 @@ min_mse <- ggplot(df_min_mse) +
 
 
 pdf(file.path(figures_path, "alpha-unbiased-min-mse.pdf"), width = 12, height = 6)
-print(unbiased + min_mse + plot_lay
-out(axes = "collect"))
+print(unbiased + min_mse + plot_layout(axes = "collect"))
 dev.off()
 
