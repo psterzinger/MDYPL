@@ -4,13 +4,13 @@ results_path <- file.path(supp_path, "results")
 out_file <- file.path(results_path, "min_mse.rda")
 n_cores <- 10
 
+library("statmod")
 library("dplyr")
 library("tidyr")
 library("ggplot2")
 library("patchwork")
 library("parallel")
-## library("brglm2")
-devtools::load_all("~/Repositories/brglm2")
+library("brglm2")
 
 source(file.path(supp_path, "code/methods/compute-pt.R"))
 source(file.path(supp_path, "code/methods/generate-unique-seeds.R"))
@@ -27,8 +27,8 @@ alpha_min_mse <- function(start, kappa, gamma, int = c(0, 1), init_iter = 0, gh 
 
 lambda_min_mse <- function(start, kappa, gamma, int = c(0, 1), init_iter = 0, gh = gauss.quad(200, "hermite")) {
     g <- function(lambda) {
-        pars <- solve_se_ridge(kappa, gamma, lambda, start = start, init_iter = init_iter,
-                               control = list(ftol = 1e-12), gh = gh)
+        pars <- brglm2:::solve_se_ridge(kappa, gamma, lambda, start = start, init_iter = init_iter,
+                                        control = list(ftol = 1e-12), gh = gh)
         sqrt(kappa) * pars[3] / pars[1]
     }
     res <- optimise(g, int, tol = 1e-08)
@@ -90,12 +90,13 @@ if (file.exists(out_file)) {
         gamma = kg[i, "gamma"]
         alpha <- alphas[1]
         if ((i - 1) %% length(kappas) == 0) {
-            res <- solve_se(kappa, gamma, alpha, start = start_mdypl,
-                            control = list(ftol = 1e-12))
+            start <- if (i == 1) start_mdypl else start_sol[i - length(kappas), 1:3]
         } else {
-            res <- solve_se(kappa, gamma, alpha, start = start_sol[i - 1, 1:3],
-                            init_iter = 0, control = list(ftol = 1e-12))
+            start <- start_sol[i - 1, 1:3]
         }
+        res <- solve_se(kappa, gamma, alpha,
+                        start = start,
+                        init_iter = 0, control = list(ftol = 1e-12))
         start_sol[i, 1:3] <- res
         start_sol[i, 4] <- max(abs(attr(res, "funcs")))
         cat(i, "/", n_kg, "kappa =", kappa, "gamma =", gamma, "alpha =", alpha,
@@ -111,14 +112,9 @@ if (file.exists(out_file)) {
         start <- start_sol[i, c("mu", "b", "sigma")]
         for (ia in 1:n_a) {
             alpha <- alphas[ia]
-            if (ia == 1) {
-                res <- solve_se(kappa, gamma, alpha, start = start,
-                                control = list(ftol = 1e-12))
-            } else {
-                start <- consts[ia - 1, 1:3]
-                res <- solve_se(kappa, gamma, alpha, start = start, init_iter = 0,
-                                control = list(ftol = 1e-12))
-            }
+            start <- if (ia > 1) consts[ia - 1, 1:3] else start
+            res <- solve_se(kappa, gamma, alpha, start = start, init_iter = 0,
+                            control = list(ftol = 1e-12))
             consts[ia, 1:3] <- res
             consts[ia, 4] <- max(abs(attr(res, "funcs")))
             if (ia %% 100 == 0)
@@ -148,7 +144,7 @@ if (file.exists(out_file)) {
         int[int < 0] <- 0.001
         int[int > 1] <- 0.999
         out <- alpha_min_mse(c(mu, b, sigma), kappa, gamma, int = int,
-                             init_iter = 10, gh = gauss.quad(1000, "hermite"))
+                             init_iter = 0, gh = gauss.quad(1000, "hermite"))
         cat(i, round(out[1], 3), round(out[2]^2, 3), "\n")
         out
     }, mc.cores = n_cores)
@@ -164,12 +160,12 @@ if (file.exists(out_file)) {
         gamma = kg[i, "gamma"]
         lambda <- lambdas[1]
         if ((i - 1) %% length(kappas) == 0) {
-            res <- solve_se_ridge(kappa, gamma, lambda, start = start_mdypl,
-                                  control = list(ftol = 1e-12))
+            start <- if (i == 1) start_ridge else start_sol[i - length(kappas), 1:3]
         } else {
-            res <- solve_se_ridge(kappa, gamma, lambda, start = start_sol[i - 1, 1:3],
-                                  init_iter = 0, control = list(ftol = 1e-12))
+            start <- start_sol[i - 1, 1:3]
         }
+        res <- brglm2:::solve_se_ridge(kappa, gamma, lambda, start = start_mdypl,
+                                       control = list(ftol = 1e-12))
         start_sol[i, 1:3] <- res
         start_sol[i, 4] <- max(abs(attr(res, "funcs")))
         cat(i, "/", n_kg, "kappa =", kappa, "gamma =", gamma, "lambda =", lambda,
@@ -185,14 +181,9 @@ if (file.exists(out_file)) {
         start <- start_sol[i, c("mu", "b", "sigma")]
         for (il in 1:n_l) {
             lambda <- lambdas[il]
-            if (il == 1) {
-                res <- solve_se_ridge(kappa, gamma, lambda, start = start,
-                                      control = list(ftol = 1e-14))
-            } else {
-                start <- consts[il - 1, 1:3]
-                res <- solve_se_ridge(kappa, gamma, lambda, start = start, init_iter = 0,
-                                      control = list(ftol = 1e-14))
-            }
+            start <- if (il == 1) start else consts[il - 1, 1:3]
+            res <- brglm2:::solve_se_ridge(kappa, gamma, lambda, start = start, init_iter = 0,
+                                           control = list(ftol = 1e-14))
             consts[il, 1:3] <- res
             consts[il, 4] <- max(abs(attr(res, "funcs")))
             if (il %% 100 == 0)
@@ -221,7 +212,7 @@ if (file.exists(out_file)) {
         int <- lambda + c(-0.5, 0.5)
         int[int < 0] <- 0.0001
         out <- lambda_min_mse(c(mu, b, sigma), kappa, gamma, int = int,
-                              init_iter = 10, gh = gauss.quad(1000, "hermite"))
+                              init_iter = 0, gh = gauss.quad(1000, "hermite"))
         cat(i, round(out[1], 3), round(out[2]^2, 3), "\n")
         out
     }, mc.cores = n_cores)
