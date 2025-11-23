@@ -3,8 +3,7 @@ figures_path <- file.path(supp_path, "figures")
 results_path <- file.path(supp_path, "results")
 n_cores <- 10
 
-## library("brglm2")
-devtools::load_all("~/Repositories/brglm2")
+library("brglm2")
 library("mvtnorm")
 library("dplyr")
 library("ggplot2")
@@ -108,7 +107,7 @@ if (!all(file.exists(nk$path))) {
     n_methds <- length(methds)
     stats <-  c("CLS", "CLS [O]", "rescaled MDYPL", "rescaled MDYPL [O]")
     n_stats <- length(stats)
-    for (i in 8:n_settings) {
+    for (i in 1:n_settings) {
         n <- nk[i, "n"]
         kappa <- nk[i, "kappa"]
         ## Get oracle constants and root MSE
