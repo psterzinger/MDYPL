@@ -44,6 +44,8 @@ tab0 <- data.frame(test = c("LR", "PLR", "rescaled PLR"),
                              full_vs_nest_rplr[2, "Pr(>Chi)"]),
                   full_infinite = c(full_sep$outcome, FALSE, FALSE),
                   nest_infinite = c(nest_sep$outcome, FALSE, FALSE))
+tab0 |> transform(statistic = round(statistic, 2),
+                  pvalue = round(pvalue, 2))
 
 ## Plots
 ## MDYPL
