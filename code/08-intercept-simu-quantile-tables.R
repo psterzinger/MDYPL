@@ -4,8 +4,7 @@ results_path <- file.path(supp_path, "results")
 out_file <- file.path(results_path, "intercept-simu-statistics.rda")
 n_cores <- 10
 
-## library("brglm2")
-devtools::load_all("~/Repositories/brglm2")
+library("brglm2")
 library("dplyr")
 library("tidyr")
 library("parallel")

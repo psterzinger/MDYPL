@@ -125,14 +125,6 @@ if (file.exists(out_file)) {
             start <- if (ia == 1) start else consts[ia - 1, 1:3]
             res <- solve_se(kappa, gamma, alpha, start = start, init_iter = 0,
                             control = list(ftol = 1e-12))
-            ## if (ia == 1) {
-            ##     res <- solve_se(kappa, gamma, alpha, start = start,
-            ##                     control = list(ftol = 1e-12))
-            ## } else {
-            ##     start <- consts[ia - 1, 1:3]
-            ##     res <- solve_se(kappa, gamma, alpha, start = start, init_iter = 0,
-            ##                     control = list(ftol = 1e-12))
-            ## }
             consts[ia, 1:3] <- res
             consts[ia, 4] <- max(abs(attr(res, "funcs")))
             if (ia %% 100 == 0)

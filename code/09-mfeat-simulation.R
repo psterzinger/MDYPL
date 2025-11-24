@@ -4,8 +4,7 @@ results_path <- file.path(supp_path, "results")
 out_file <- file.path(results_path, "mfeat-simu.rda")
 n_cores <- 10
 
-## library("brglm2")
-devtools::load_all("~/Repositories/brglm2")
+library("brglm2")
 library("ggplot2")
 library("patchwork")
 library("parallel")
@@ -90,7 +89,9 @@ if (file.exists(out_file)) {
                 }
             }
             msg <- paste0(k, "/", n_simu, " : ", "gamma^2 = ", gamma^2, " beta0 = ", beta0)
-            if (att == n_start) cat(msg, ": Failed\n") else cat(msg, ": Done\n")
+            if (k %% 10 == 0) {
+                if (att == n_start) cat(msg, ": Failed\n") else cat(msg, ": Done\n")
+            }
             data.frame(value = c(plr, rescaled_plr),
                        statistic = c("PLR", "rescaled PLR"),
                        sample = k,
