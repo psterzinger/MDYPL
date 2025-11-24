@@ -1,8 +1,7 @@
 supp_path <- "."
 figures_path <- file.path(supp_path, "figures")
 
-## library("brglm2")
-devtools::load_all("~/Repositories/brglm2")
+library("brglm2")
 library("detectseparation")
 library("ggplot2")
 library("patchwork")

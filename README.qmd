@@ -21,7 +21,8 @@ format: md
 #| echo: false
 #| message: false
 library("tinytable")
-R_pkgs <- data.frame(Package = sort(c("dplyr", "ggplot2", "ggpp", "patchwork", "RcppNumerical", "brglm2",
+R_pkgs <- data.frame(Package = sort(c("dplyr", "ggplot2", "ggpp", "patchwork",
+                                      "RcppNumerical", "brglm2", "detectseparation",
                                       "nleqslv", "mvtnorm", "glmnet", "tictoc")))
 for (pkg in R_pkgs$Package)
     library(pkg, character.only = TRUE)
