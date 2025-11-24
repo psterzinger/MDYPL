@@ -7,12 +7,13 @@ n_cores <- 10
 library("dplyr")
 library("ggplot2")
 library("patchwork")
-library("parallel")
 library("RcppNumerical")
 library("brglm2")
+library("progressr")
+library("future.apply")
+plan(multisession, workers = n_cores)
 
 source(file.path(supp_path, "code/methods/compute-pt.R"))
-source(file.path(supp_path, "code/methods/generate-unique-seeds.R"))
 source(file.path(supp_path, "code/methods/fit-mdypl.R"))
 
 if (file.exists(out_file)) {
@@ -35,17 +36,19 @@ if (file.exists(out_file)) {
     mle_exists <- kga$kappa < pt_point$kappa
     mbs <- matrix(NA, ncol = 3, nrow = nrow(kga))
     se_pars <- c(0.7, 2, 2)
-    for (s in 1:nrow(kga)) {
-        kappa <- kga[s, "kappa"]
-        gamma <- kga[s, "gamma"]
-        alpha <- kga[s, "alpha"]
-        if (alpha == 1 & !mle_exists[s]) next
-        mbs[s, ] <- solve_se(kappa, gamma, alpha, start = se_pars, init_iter = 10)
-        cat("kappa =", kappa, "gamma =", gamma, "alpha", alpha, "Done.\n")
-    }
+    with_progress({
+        pro <- progressor(steps = nrow(kga))
+        for (s in 1:nrow(kga)) {
+            kappa <- kga[s, "kappa"]
+            gamma <- kga[s, "gamma"]
+            alpha <- kga[s, "alpha"]
+            if (alpha == 1 & !mle_exists[s]) next
+            mbs[s, ] <- solve_se(kappa, gamma, alpha, start = se_pars, init_iter = 10)
+            pro()
+        }
+    })
     colnames(mbs) <- c("mu", "b", "sigma")
     kgambs <- cbind(kga, mbs)
-
 
     R <- 1000
     n <- 2000
@@ -66,37 +69,29 @@ if (file.exists(out_file)) {
         beta0 <- rep(c(0, 1), each = p / 2)
         ## resclale so that signal strength is gamma
         beta0 <- sqrt(n) * gamma * beta0 / sqrt(sum(beta0^2))
-        seeds <- generate_unique_seeds(R)
-        res <- mclapply(1:R, function(i) {
-            if (i %% 100 == 0) cat(i, "out of", R, "\n")
-            set.seed(seeds[i])
-            X <- matrix(rnorm(n * p), nrow = n, ncol = p) / sqrt(n)
-            probs <- plogis(c(X %*% beta0))
-            y <- rbinom(n, 1, probs)
-            dat <- data.frame(y, X)
-            ## fm_full <- paste0("y ~ -1 +", paste0("X", 1:p, collapse = " + "))
-            ## fm_nest1 <- paste0("y ~ -1 +", paste0("X", 6:p, collapse = " + "))
-            ## fm_nest2 <- paste0("y ~ -1 +", paste0("X", 51:p, collapse = " + "))
-            ## m_full <- glm(fm_full, family = binomial(), data = dat, method = "mdypl_fit", alpha = alpha,
-            ##               start = beta0)
-            ## m_nest1 <- glm(fm_nest1, family = binomial(), data = dat, method = "mdypl_fit", alpha = alpha,
-            ##                start = beta0[-c(1:5)])
-            ## m_nest2 <- glm(fm_nest2, family = binomial(), data = dat, method = "mdypl_fit", alpha = alpha,
-            ##                start = beta0[-c(1:50)])
-            m_full <- fit_mdypl(X, y, alpha = alpha, start = beta0)
-            m_nest1 <- fit_mdypl(X[, -c(1:5)], y, alpha = alpha, start = beta0[-c(1:5)])
-            m_nest2 <- fit_mdypl(X[, -c(1:50)], y, alpha = alpha, start = beta0[-c(1:50)])
-            stat1 <- 2 * (m_full$pl - m_nest1$pl)
-            stat2 <- 2 * (m_full$pl - m_nest2$pl)
-            r_stat1 <- stat1 * b / (kappa * sigma^2)
-            r_stat2 <- stat2 * b / (kappa * sigma^2)
-            data.frame(value = c(stat1, stat2, r_stat1, r_stat2),
-                       method = rep(c("PLR", "rescaled_PLR"), each = 2),
-                       kappa = kappa,
-                       gamma = gamma,
-                       alpha = alpha,
-                       df = rep(c(5, 50), 2))
-        }, mc.cores = n_cores)
+        with_progress({
+            pro <- progressor(R)
+            res <- future_lapply(1:R, function(i) {
+                X <- matrix(rnorm(n * p), nrow = n, ncol = p) / sqrt(n)
+                probs <- plogis(c(X %*% beta0))
+                y <- rbinom(n, 1, probs)
+                dat <- data.frame(y, X)
+                m_full <- fit_mdypl(X, y, alpha = alpha, start = beta0)
+                m_nest1 <- fit_mdypl(X[, -c(1:5)], y, alpha = alpha, start = beta0[-c(1:5)])
+                m_nest2 <- fit_mdypl(X[, -c(1:50)], y, alpha = alpha, start = beta0[-c(1:50)])
+                stat1 <- 2 * (m_full$pl - m_nest1$pl)
+                stat2 <- 2 * (m_full$pl - m_nest2$pl)
+                r_stat1 <- stat1 * b / (kappa * sigma^2)
+                r_stat2 <- stat2 * b / (kappa * sigma^2)
+                pro()
+                data.frame(value = c(stat1, stat2, r_stat1, r_stat2),
+                           method = rep(c("PLR", "rescaled_PLR"), each = 2),
+                           kappa = kappa,
+                           gamma = gamma,
+                           alpha = alpha,
+                           df = rep(c(5, 50), 2))
+            }, future.seed = TRUE)
+        })
         results <- rbind(results, do.call("rbind", res))
     }
     results <- results |>

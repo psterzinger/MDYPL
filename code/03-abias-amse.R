@@ -7,8 +7,12 @@ n_cores <- 10
 library("dplyr")
 library("ggplot2")
 library("patchwork")
-library("parallel")
 library("brglm2")
+library("progressr")
+handlers("cli")
+library("future.apply")
+plan(multisession, workers = n_cores)
+
 
 source(file.path(supp_path, "code/methods/compute-pt.R"))
 source(file.path(supp_path, "code/methods/generate-unique-seeds.R"))
@@ -30,32 +34,29 @@ if (file.exists(out_file)) {
     n_gammas <- length(gammas)
     se_pars <- c(0.7, 2, 2)
 
-    result <- mclapply(1:n_gammas, function(ig) {
-        gamma = gammas[ig]
-        consts <- matrix(NA, n_kappas, 4)
-        grads <-  matrix(NA, n_kappas, 3)
-        colnames(consts) <- c("mu", "b", "sigma", "max_abs_fun")
-        for (ik in 1:n_kappas) {
-            kappa = kappas[ik]
-            if (ik == 1) {
-                res <- solve_se(kappa, gamma, 1/(1 + kappa), start = se_pars)
-            } else {
-                res <- solve_se(kappa, gamma, 1/(1 + kappa), start = consts[ik - 1, 1:3],
-                                init_iter = 0)
+    with_progress({
+        k_report <- 20
+        pro <- progressor(n_gammas * n_kappas / k_report)
+        result <- future_lapply(1:n_gammas, function(ig) {
+            gamma = gammas[ig]
+            consts <- matrix(NA, n_kappas, 4)
+            colnames(consts) <- c("mu", "b", "sigma", "max_abs_fun")
+            for (ik in 1:n_kappas) {
+                kappa = kappas[ik]
+                if (ik == 1) {
+                    res <- solve_se(kappa, gamma, 1/(1 + kappa), start = se_pars)
+                } else {
+                    res <- solve_se(kappa, gamma, 1/(1 + kappa), start = consts[ik - 1, 1:3],
+                                    init_iter = 0)
+                }
+                consts[ik, 1:3] <- res
+                consts[ik, 4] <- max(abs(attr(res, "funcs")))
+                if (ik %% k_report == 0)
+                    pro(message = paste("gamma =", gamma, "max(linf) =", round(max(consts[, 4], na.rm = TRUE), 12)))
             }
-            consts[ik, 1:3] <- res
-            consts[ik, 4] <- max(abs(attr(res, "funcs")))
-            grads[ik, ] <- attr(res, "funcs")
-            if (ik %% 10 == 0) {
-                cat("MDYPL |",
-                    "i_gamma: ", ig, " /", n_gammas, " |",
-                    "i_kappa: ", ik, " /", n_kappas, " |",
-                    "κ =", round(kappa, digits = 2), ", γ =", round(gamma, digits = 2), " |",
-                    round(max(abs(grads[1:ik, ])), digits = 12), "\n")
-            }
-        }
-        data.frame(consts, kappa = kappas, gamma)
-    }, mc.cores = n_cores)
+            data.frame(consts, kappa = kappas, gamma)
+        }, future.seed = TRUE)
+    })
     result <- do.call("rbind", result)
     save(pt, result, file = out_file)
 }

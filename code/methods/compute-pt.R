@@ -23,8 +23,8 @@ compute_pt <- function(beta0 = 0,
         }
         optim(c(0, 0), obj, method = "BFGS")$value
     }
-    kappa <- unlist(mclapply(1:length(gamma_grid), function(k) {
+    kappa <- future_sapply(1:length(gamma_grid), function(k) {
         kappa(gamma = gamma_grid[k])
-    }, mc.cores = ncores))
+    })
     data.frame(kappa = kappa, gamma = gamma_grid)
 }

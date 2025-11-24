@@ -4,17 +4,18 @@ results_path <- file.path(supp_path, "results")
 out_file <- file.path(results_path, "rescaled-mDYPL-estimates.rda")
 n_cores <- 10
 
-library("parallel")
 library("dplyr")
 library("ggplot2")
 library("ggpp")
 library("patchwork")
 library("RcppNumerical")
 library("brglm2")
+library("progressr")
+library("future.apply")
+plan(multisession, workers = n_cores)
 
 source(file.path(supp_path, "code/methods/plot-with-insets.R"))
 source(file.path(supp_path, "code/methods/compute-pt.R"))
-source(file.path(supp_path, "code/methods/generate-unique-seeds.R"))
 source(file.path(supp_path, "code/methods/fit-mdypl.R"))
 
 ## Estimates for setting 1
@@ -29,7 +30,7 @@ estimate_s1 <- function(kappa, gamma) {
     beta0 <- sort(sqrt(n) * gamma * beta0 / sqrt(sum(beta0^2)))
     X <- matrix(rnorm(n * p), nrow = n, ncol = p) / sqrt(n)
     y <- rbinom(n, 1, plogis(drop(X %*% beta0)))
-    coefs <- fit_mdypl(X, y, alpha = 1 / (1 + kappa)) |> coef()
+    coefs <- fit_mdypl(X, y, alpha = 1 / (1 + kappa), start = beta0) |> coef()
     data.frame(estimate = coefs,
                kappa = kappa,
                gamma = gamma,
@@ -50,7 +51,7 @@ estimate_s2 <- function(kappa, gamma) {
     beta0 <- sort(sqrt(n) * gamma * beta0 / sqrt(sum(beta0^2)))
     X <- matrix(rnorm(n * p), nrow = n, ncol = p) / sqrt(n)
     y <- rbinom(n, 1, plogis(drop(X %*% beta0)))
-    coefs <- fit_mdypl(X, y, alpha = 1 / (1 + kappa)) |> coef()
+    coefs <- fit_mdypl(X, y, alpha = 1 / (1 + kappa), start = beta0) |> coef()
     data.frame(estimate = coefs,
                kappa = kappa,
                gamma = gamma,
@@ -96,9 +97,10 @@ if (file.exists(out_file)) {
         kappa <- kgmbs[i, "kappa"]
         gamma <- kgmbs[i, "gamma"]
         mu <- kgmbs[i, "mu"]
-        seeds <- generate_unique_seeds(n_reps)
-        ests_s1 <- mclapply(1:n_reps, function(i) { set.seed(seeds[i]); estimate_s1(kappa, gamma) }, mc.cores = n_cores)
-        ests_s2 <- mclapply(1:n_reps, function(i) { set.seed(seeds[i]); estimate_s2(kappa, gamma) }, mc.cores = n_cores)
+        ests_s1 <- future_replicate(n_reps, estimate_s1(kappa, gamma),
+                                    future.seed = TRUE, simplify = FALSE)
+        ests_s2 <- future_replicate(n_reps, estimate_s2(kappa, gamma),
+                                    future.seed = TRUE, simplify = FALSE)
         ests_s1 <- do.call("rbind", ests_s1)
         ests_s2 <- do.call("rbind", ests_s2)
         ests_s1$mu <- ests_s2$mu <- mu
