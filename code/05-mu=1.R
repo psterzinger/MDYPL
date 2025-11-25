@@ -7,9 +7,12 @@ n_cores <- 10
 library("dplyr")
 library("ggplot2")
 library("patchwork")
-library("parallel")
 library("brglm2")
 library("nleqslv")
+library("progressr")
+handlers("cli")
+library("future.apply")
+plan(multisession, workers = n_cores)
 
 source(file.path(supp_path, "code/methods/compute-pt.R"))
 
@@ -68,23 +71,28 @@ if (file.exists(out_file)) {
     n_gammas <- length(gammas)
     se_pars <- c(0.8, 2, 2)
     df_unbiased <- NULL
-    for (ig in 1:n_gammas) {
-        gamma <- gammas[ig]
-        start <- if (ig == 1) se_pars else consts[1, 1:3]
-        consts <- matrix(NA, n_kappas, 4)
-        colnames(consts) <- c("alpha", "b", "sigma", "linf")
-        for (ik in 1:n_kappas) {
-            kappa <- kappas[ik]
-            if (ik > 1) start <- consts[ik - 1, 1:3] * c(1.0, 1.4, 1.2)
-            res <- alpha_mu_one(start, kappa, gamma, prox = 1e-08)
-            consts[ik, 1:3] <- res
-            consts[ik, 4] <- attr(res, "linf")
-            cat("gamma =", gamma, "kappa =", kappa, "|", ik, "/", n_kappas,
-                "linf", attr(res, "linf"), "\n")
+    with_progress({
+        every <- 20
+        pro <- progressor(n_gammas * n_kappas / every)
+        for (ig in 1:n_gammas) {
+            gamma <- gammas[ig]
+            start <- if (ig == 1) se_pars else consts[1, 1:3]
+            consts <- matrix(NA, n_kappas, 4)
+            colnames(consts) <- c("alpha", "b", "sigma", "linf")
+            for (ik in 1:n_kappas) {
+                kappa <- kappas[ik]
+                if (ik > 1) start <- consts[ik - 1, 1:3] * c(1.0, 1.4, 1.2)
+                res <- alpha_mu_one(start, kappa, gamma, prox = 1e-08)
+                consts[ik, 1:3] <- res
+                consts[ik, 4] <- attr(res, "linf")
+                if (ik %% every == 0)
+                    pro(paste("gamma =", gamma, "kappa =", kappa, "|",
+                              "linf", round(attr(res, "linf"), 12), "\n"))
+            }
+            df_unbiased <- rbind(df_unbiased,
+                                 data.frame(kappa = kappas, gamma = gamma, consts))
         }
-        df_unbiased <- rbind(df_unbiased,
-                             data.frame(kappa = kappas, gamma = gamma, consts))
-    }
+    })
 
     ## Compute alpha such that mse is minimized
     ## Get solutions at alpha_grid[1]
@@ -95,45 +103,54 @@ if (file.exists(out_file)) {
     kg <- expand.grid(kappa = kappas, gamma = gammas)
     n_kg <- nrow(kg)
     start_sol <- matrix(NA, n_kg, 4)
-    for (i in 1:n_kg) {
-        kappa <- kg[i, "kappa"]
-        gamma <- kg[i, "gamma"]
-        alpha <- alpha_grid[1]
-        if ((i - 1) %% length(kappas) == 0) {
-            start <- if (i == 1) se_pars else start_sol[i - length(kappas), 1:3]
-        } else {
-            start <- start_sol[i - 1, 1:3]
+    with_progress({
+        every <- 20
+        pro <- progressor(n_kg)
+        for (i in 1:n_kg) {
+            kappa <- kg[i, "kappa"]
+            gamma <- kg[i, "gamma"]
+            alpha <- alpha_grid[1]
+            if ((i - 1) %% length(kappas) == 0) {
+                start <- if (i == 1) se_pars else start_sol[i - length(kappas), 1:3]
+            } else {
+                start <- start_sol[i - 1, 1:3]
+            }
+            res <- solve_se(kappa, gamma, alpha, start = start,
+                            init_iter = 0, control = list(ftol = 1e-12))
+            start_sol[i, 1:3] <- res
+            start_sol[i, 4] <- max(abs(attr(res, "funcs")))
+            if (i %% every == 0)
+                pro(paste("kappa =", kappa, "gamma =", gamma, "alpha =", alpha,
+                          "linf", round(max(start_sol[, 4], na.rm = TRUE), 12)))
         }
-        res <- solve_se(kappa, gamma, alpha, start = start,
-                        init_iter = 0, control = list(ftol = 1e-12))
-        start_sol[i, 1:3] <- res
-        start_sol[i, 4] <- max(abs(attr(res, "funcs")))
-        cat(i, "/", n_kg, "kappa =", kappa, "gamma =", gamma, "alpha =", alpha,
-            "linf", max(start_sol[, 4], na.rm = TRUE), "\n")
-    }
-    colnames(start_sol) <- c("mu", "b", "sigma", "linf")
+        colnames(start_sol) <- c("mu", "b", "sigma", "linf")
+    })
 
     ## Get solutions for all alphas
-    results <- mclapply(1:n_kg, function(i) {
-        kappa <- kg[i, "kappa"]
-        gamma <- kg[i, "gamma"]
-        consts <- matrix(NA, n_a, 4)
-        colnames(consts) <- c("mu", "b", "sigma", "linf")
-        start <- start_sol[i, c("mu", "b", "sigma")]
-        for (ia in 1:n_a) {
-            alpha <- alpha_grid[ia]
-            start <- if (ia == 1) start else consts[ia - 1, 1:3]
-            res <- solve_se(kappa, gamma, alpha, start = start, init_iter = 0,
+    with_progress({
+        every <- 20
+        pro <- progressor(n_kg * n_a / every)
+        results <- future_lapply(1:n_kg, function(i) {
+            kappa <- kg[i, "kappa"]
+            gamma <- kg[i, "gamma"]
+            consts <- matrix(NA, n_a, 4)
+            colnames(consts) <- c("mu", "b", "sigma", "linf")
+            start <- start_sol[i, c("mu", "b", "sigma")]
+            for (ia in 1:n_a) {
+                alpha <- alpha_grid[ia]
+                start <- if (ia == 1) start else consts[ia - 1, 1:3]
+                res <- solve_se(kappa, gamma, alpha, start = start, init_iter = 0,
                             control = list(ftol = 1e-12))
-            consts[ia, 1:3] <- res
-            consts[ia, 4] <- max(abs(attr(res, "funcs")))
-            if (ia %% 100 == 0)
-                cat(i, "/", n_kg, "|", ia, "/", n_a, "|",
-                    "kappa =", kappa, "gamma =", gamma, "alpha =", alpha,
-                    "linf", max(consts[, 4], na.rm = TRUE), "\n")
-        }
-        data.frame(kappa = kappa, gamma = gamma, alpha = alpha_grid, consts)
-    }, mc.cores = n_cores)
+                consts[ia, 1:3] <- res
+                consts[ia, 4] <- max(abs(attr(res, "funcs")))
+                if (ia %% every == 0) {
+                    pro(paste("kappa =", kappa, "gamma =", gamma, "alpha =", alpha, "linf",
+                              round(max(consts[, 4], na.rm = TRUE), 12)))
+                }
+            }
+            data.frame(kappa = kappa, gamma = gamma, alpha = alpha_grid, consts)
+        }, future.seed = TRUE)
+    })
     df_mse <- do.call("rbind", results)
     df_mse$rmse <- with(df_mse, sigma / mu)
 
@@ -142,22 +159,25 @@ if (file.exists(out_file)) {
         group_by(kappa, gamma) |>
         slice_min(order_by = rmse, with_ties = FALSE) |>
         ungroup()
-    alpha_exact <-  mclapply(1:nrow(df_min_mse), function(i) {
-        cpars <- df_min_mse[i, ]
-        kappa <- cpars$kappa
-        gamma <- cpars$gamma
-        alpha <- cpars$alpha
-        mu <- cpars$mu
-        b <- cpars$b
-        sigma <- cpars$sigma
-        int <- alpha + c(-0.05, 0.05)
-        int[int < 0] <- 0.001
-        int[int > 1] <- 0.999
-        out <- alpha_min_mse(c(mu, b, sigma), kappa, gamma, int = int,
-                             init_iter = 0, prox_tol = 1e-09)
-        cat(i, round(c(out, alpha), 3), "\n")
-        out
-    }, mc.cores = n_cores)
+    with_progress({
+        pro <- progressor(nrow(df_min_mse))
+        alpha_exact <- future_lapply(1:nrow(df_min_mse), function(i) {
+            cpars <- df_min_mse[i, ]
+            kappa <- cpars$kappa
+            gamma <- cpars$gamma
+            alpha <- cpars$alpha
+            mu <- cpars$mu
+            b <- cpars$b
+            sigma <- cpars$sigma
+            int <- alpha + c(-0.05, 0.05)
+            int[int < 0] <- 0.001
+            int[int > 1] <- 0.999
+            out <- alpha_min_mse(c(mu, b, sigma), kappa, gamma, int = int,
+                                 init_iter = 0, prox_tol = 1e-09)
+            pro(paste(round(c(out, alpha), 3), "\n"))
+            out
+        }, future.seed = TRUE)
+    })
     df_min_mse$alpha <- unlist(alpha_exact)
 
     save(df_mse, df_min_mse, df_unbiased, pts, file = out_file)

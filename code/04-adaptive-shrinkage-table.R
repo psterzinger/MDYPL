@@ -6,12 +6,12 @@ n_cores <- 10
 library("dplyr")
 library("ggplot2")
 library("patchwork")
-library("parallel")
 library("RcppNumerical")
 library("brglm2")
+library("future.apply")
+plan(multisession, workers = n_cores)
 
 source(file.path(supp_path, "code/methods/compute-pt.R"))
-source(file.path(supp_path, "code/methods/generate-unique-seeds.R"))
 source(file.path(supp_path, "code/methods/fit-mdypl.R"))
 
 ## Estimates for setting 1
@@ -35,7 +35,7 @@ estimate_s <- function(setting) {
     beta0 <- sort(sqrt(n) * gamma * beta0 / sqrt(sum(beta0^2)))
     X <- matrix(rnorm(n * p), nrow = n, ncol = p) / sqrt(n)
     y <- rbinom(n, 1, plogis(drop(X %*% beta0)))
-    coefs <- fit_mdypl(X, y, alpha = 1 / (1 + kappa)) |> coef()
+    coefs <- fit_mdypl(X, y, alpha = 1 / (1 + kappa), start = beta0) |> coef()
     data.frame(estimate = coefs,
                kappa = kappa,
                gamma = gamma,
@@ -59,11 +59,9 @@ aggegates <- function(results) {
 
 n_reps <- 5000
 set.seed(123)
-seeds <- generate_unique_seeds(n_reps)
-
-ests_sa <- mclapply(1:n_reps, function(i) { set.seed(seeds[i]); estimate_s("a") }, mc.cores = n_cores)
-ests_sb <- mclapply(1:n_reps, function(i) { set.seed(seeds[i]); estimate_s("b") }, mc.cores = n_cores)
-ests_sc <- mclapply(1:n_reps, function(i) { set.seed(seeds[i]); estimate_s("c") }, mc.cores = n_cores)
+ests_sa <- future_replicate(n_reps, estimate_s("a"), future.seed = TRUE, simplify = FALSE)
+ests_sb <- future_replicate(n_reps, estimate_s("b"), future.seed = TRUE, simplify = FALSE)
+ests_sc <- future_replicate(n_reps, estimate_s("c"), future.seed = TRUE, simplify = FALSE)
 ests_sa <- do.call("rbind", ests_sa)
 ests_sb <- do.call("rbind", ests_sb)
 ests_sc <- do.call("rbind", ests_sc)

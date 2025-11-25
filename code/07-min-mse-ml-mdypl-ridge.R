@@ -9,8 +9,12 @@ library("dplyr")
 library("tidyr")
 library("ggplot2")
 library("patchwork")
-library("parallel")
 library("brglm2")
+library("progressr")
+handlers("cli")
+library("future.apply")
+plan(multisession, workers = n_cores)
+
 
 source(file.path(supp_path, "code/methods/compute-pt.R"))
 source(file.path(supp_path, "code/methods/generate-unique-seeds.R"))
@@ -48,11 +52,11 @@ if (file.exists(out_file)) {
     set.seed(123)
     ns <- 200000
     xzu <- data.frame(X = rnorm(ns), Z = rnorm(ns), U = runif(ns))
-    kg$kappa_diff <- mclapply(seq.int(nrow(kg)), function(j) {
+    kg$kappa_diff <- future_sapply(seq.int(nrow(kg)), function(j) {
         gamma <- kg$gamma[j]
         kappa <- kg$kappa[j]
         compute_pt(beta0 = 0, gamma, ncores = 1, XZU =  xzu)$kappa - kappa
-    }, mc.cores = n_cores) |> unlist()
+    })
     mle_exists <- kg$kappa_diff > 0
     grid_size <- 20
     alphas <- c(seq(0.01, 0.9, length.out = 2 * grid_size),
@@ -63,24 +67,28 @@ if (file.exists(out_file)) {
     n_l <- length(lambdas)
     ## ML
     start0 <- c(0.7, 2, 2)
-    df_ml <- mclapply(1:n_kg, function(i) {
-        kappa = kg[i, "kappa"]
-        gamma = kg[i, "gamma"]
-        if (mle_exists[i]) {
-            consts <- solve_se(kappa, gamma, 1, start = start0)
-            linf <- max(attr(consts, "funcs"))
-        } else {
-            consts <- rep(NA, 3)
-            linf <- NA
-        }
-        cat(i, "/", n_kg, ":", linf, "\n")
-        data.frame(kappa = kappa, gamma = gamma, alpha = 1,
-                   mu = consts[1], b = consts[2], sigma = consts[3], linf = linf)
-    }, mc.cores = n_cores)
+    with_progress({
+        pro <- progressor(n_kg)
+        df_ml <- future_lapply(1:n_kg, function(i) {
+            kappa = kg[i, "kappa"]
+            gamma = kg[i, "gamma"]
+            if (mle_exists[i]) {
+                consts <- solve_se(kappa, gamma, 1, start = start0)
+                linf <- max(attr(consts, "funcs"))
+            } else {
+                consts <- rep(NA, 3)
+                linf <- NA
+            }
+            pro(message = paste(linf))
+            data.frame(kappa = kappa, gamma = gamma, alpha = 1,
+                       mu = consts[1], b = consts[2], sigma = consts[3], linf = linf)
+        })
+    })
     df_ml <- do.call("rbind", df_ml)
     df_ml$method <- "ML"
     df_ml_min <- df_ml |>
         mutate(mse = kappa * sigma^2 / mu^2)
+
     ## MDYPL
     ## Get solutions at alphas[1]
     start_sol <- matrix(NA, n_kg, 4)
@@ -104,26 +112,29 @@ if (file.exists(out_file)) {
     }
     colnames(start_sol) <- c("mu", "b", "sigma", "linf")
     ## Get solutions for all alphas
-    results <- mclapply(1:n_kg, function(i) {
-        kappa <- kg[i, "kappa"]
-        gamma <- kg[i, "gamma"]
-        consts <- matrix(NA, n_a, 4)
-        colnames(consts) <- c("mu", "b", "sigma", "linf")
-        start <- start_sol[i, c("mu", "b", "sigma")]
-        for (ia in 1:n_a) {
-            alpha <- alphas[ia]
-            start <- if (ia > 1) consts[ia - 1, 1:3] else start
-            res <- solve_se(kappa, gamma, alpha, start = start, init_iter = 0,
-                            control = list(ftol = 1e-12))
-            consts[ia, 1:3] <- res
-            consts[ia, 4] <- max(abs(attr(res, "funcs")))
-            if (ia %% 100 == 0)
-                cat(i, "/", n_kg, "|", ia, "/", n_a, "|",
-                    "kappa =", kappa, "gamma =", gamma, "alpha =", alpha,
-                    "linf", max(consts[, 4], na.rm = TRUE), "\n")
-        }
-        data.frame(kappa = kappa, gamma = gamma, alpha = alphas, consts)
-    }, mc.cores = n_cores)
+    with_progress({
+        every <- 20
+        pro <- progressor(n_kg * n_a / every)
+        results <- future_lapply(1:n_kg, function(i) {
+            kappa <- kg[i, "kappa"]
+            gamma <- kg[i, "gamma"]
+            consts <- matrix(NA, n_a, 4)
+            colnames(consts) <- c("mu", "b", "sigma", "linf")
+            start <- start_sol[i, c("mu", "b", "sigma")]
+            for (ia in 1:n_a) {
+                alpha <- alphas[ia]
+                start <- if (ia > 1) consts[ia - 1, 1:3] else start
+                res <- solve_se(kappa, gamma, alpha, start = start, init_iter = 0,
+                                control = list(ftol = 1e-12))
+                consts[ia, 1:3] <- res
+                consts[ia, 4] <- max(abs(attr(res, "funcs")))
+                if (ia %% every == 0)
+                    pro(paste("kappa =", kappa, "gamma =", gamma, "alpha =", alpha,
+                              "linf", max(consts[, 4], na.rm = TRUE)))
+            }
+            data.frame(kappa = kappa, gamma = gamma, alpha = alphas, consts)
+        })
+    })
     df_mdypl <- do.call("rbind", results)
     df_mdypl$method <- "MDYPL"
     ## Refine with more quad points
@@ -132,25 +143,29 @@ if (file.exists(out_file)) {
         group_by(kappa, gamma) |>
         slice_min(order_by = mse, with_ties = FALSE) |>
         ungroup()
-    alpha_exact <-  mclapply(1:nrow(df_mdypl_min), function(i) {
-        cpars <- df_mdypl_min[i, ]
-        kappa <- cpars$kappa
-        gamma <- cpars$gamma
-        alpha <- cpars$alpha
-        mu <- cpars$mu
-        b <- cpars$b
-        sigma <- cpars$sigma
-        int <- alpha + c(-0.1, 0.1)
-        int[int < 0] <- 0.001
-        int[int > 1] <- 0.999
-        out <- alpha_min_mse(c(mu, b, sigma), kappa, gamma, int = int,
-                             init_iter = 0, gh = gauss.quad(1000, "hermite"))
-        cat(i, round(out[1], 3), round(out[2]^2, 3), "\n")
-        out
-    }, mc.cores = n_cores)
+    with_progress({
+        pro <- progressor(nrow(df_mdypl_min))
+        alpha_exact <-  future_lapply(1:nrow(df_mdypl_min), function(i) {
+            cpars <- df_mdypl_min[i, ]
+            kappa <- cpars$kappa
+            gamma <- cpars$gamma
+            alpha <- cpars$alpha
+            mu <- cpars$mu
+            b <- cpars$b
+            sigma <- cpars$sigma
+            int <- alpha + c(-0.1, 0.1)
+            int[int < 0] <- 0.001
+            int[int > 1] <- 0.999
+            out <- alpha_min_mse(c(mu, b, sigma), kappa, gamma, int = int,
+                                 init_iter = 0, gh = gauss.quad(1000, "hermite"))
+            pro(paste(round(out[1], 3), round(out[2]^2, 3)))
+            out
+        })
+    })
     alpha_exact <- do.call("rbind", alpha_exact)
     df_mdypl_min$alpha <- alpha_exact[, "alpha"]
     df_mdypl_min$mse <- alpha_exact[, "rmse"]^2
+
     ## Logistic ridge
     ## Get solutions at lambda[1]
     start_sol <- matrix(NA, n_kg, 4)
@@ -173,26 +188,29 @@ if (file.exists(out_file)) {
     }
     colnames(start_sol) <- c("mu", "b", "sigma", "linf")
     ## Get solutions for all lambdas
-    results <- mclapply(1:n_kg, function(i) {
-        kappa <- kg[i, "kappa"]
-        gamma <- kg[i, "gamma"]
-        consts <- matrix(NA, n_a, 4)
-        colnames(consts) <- c("mu", "b", "sigma", "linf")
-        start <- start_sol[i, c("mu", "b", "sigma")]
-        for (il in 1:n_l) {
-            lambda <- lambdas[il]
-            start <- if (il == 1) start else consts[il - 1, 1:3]
-            res <- brglm2:::solve_se_ridge(kappa, gamma, lambda, start = start, init_iter = 0,
-                                           control = list(ftol = 1e-14))
-            consts[il, 1:3] <- res
-            consts[il, 4] <- max(abs(attr(res, "funcs")))
-            if (il %% 100 == 0)
-                cat(i, "/", n_kg, "|", il, "/", n_a, "|",
-                    "kappa =", kappa, "gamma =", gamma, "lambda =", lambda,
-                    "linf", max(consts[, 4], na.rm = TRUE), "\n")
+    with_progress({
+        every <- 20
+        pro <- progressor(n_kg * n_l / every)
+        results <- future_lapply(1:n_kg, function(i) {
+            kappa <- kg[i, "kappa"]
+            gamma <- kg[i, "gamma"]
+            consts <- matrix(NA, n_a, 4)
+            colnames(consts) <- c("mu", "b", "sigma", "linf")
+            start <- start_sol[i, c("mu", "b", "sigma")]
+            for (il in 1:n_l) {
+                lambda <- lambdas[il]
+                start <- if (il == 1) start else consts[il - 1, 1:3]
+                res <- brglm2:::solve_se_ridge(kappa, gamma, lambda, start = start, init_iter = 0,
+                                               control = list(ftol = 1e-14))
+                consts[il, 1:3] <- res
+                consts[il, 4] <- max(abs(attr(res, "funcs")))
+                if (il %% every == 0)
+                    pro(message = paste("kappa =", kappa, "gamma =", gamma, "lambda =", lambda,
+                                        "linf", max(consts[, 4], na.rm = TRUE)))
         }
         data.frame(kappa = kappa, gamma = gamma, lambda = lambdas, consts)
-    }, mc.cores = n_cores)
+        })
+    })
     df_ridge <- do.call("rbind", results)
     df_ridge$method <- "ridge"
     ## Refine with more quad points
@@ -201,21 +219,24 @@ if (file.exists(out_file)) {
         group_by(kappa, gamma) |>
         slice_min(order_by = mse, with_ties = FALSE) |>
         ungroup()
-    lambda_exact <-  mclapply(1:nrow(df_ridge_min), function(i) {
-        cpars <- df_ridge_min[i, ]
-        kappa <- cpars$kappa
-        gamma <- cpars$gamma
-        lambda <- cpars$lambda
-        mu <- cpars$mu
-        b <- cpars$b
-        sigma <- cpars$sigma
-        int <- lambda + c(-0.5, 0.5)
-        int[int < 0] <- 0.0001
-        out <- lambda_min_mse(c(mu, b, sigma), kappa, gamma, int = int,
-                              init_iter = 0, gh = gauss.quad(1000, "hermite"))
-        cat(i, round(out[1], 3), round(out[2]^2, 3), "\n")
-        out
-    }, mc.cores = n_cores)
+    with_progress({
+        pro <- progressor(nrow(df_ridge_min))
+        lambda_exact <-  future_lapply(1:nrow(df_ridge_min), function(i) {
+            cpars <- df_ridge_min[i, ]
+            kappa <- cpars$kappa
+            gamma <- cpars$gamma
+            lambda <- cpars$lambda
+            mu <- cpars$mu
+            b <- cpars$b
+            sigma <- cpars$sigma
+            int <- lambda + c(-0.5, 0.5)
+            int[int < 0] <- 0.0001
+            out <- lambda_min_mse(c(mu, b, sigma), kappa, gamma, int = int,
+                                  init_iter = 0, gh = gauss.quad(1000, "hermite"))
+            pro(paste(round(out[1], 3), round(out[2]^2, 3)))
+            out
+        })
+    })
     lambda_exact <- do.call("rbind", lambda_exact)
     df_ridge_min$lambda <- lambda_exact[, "lambda"]
     df_ridge_min$mse <- lambda_exact[, "rmse"]^2

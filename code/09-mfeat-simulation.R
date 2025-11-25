@@ -7,10 +7,12 @@ n_cores <- 10
 library("brglm2")
 library("ggplot2")
 library("patchwork")
-library("parallel")
+library("progressr")
+handlers("cli")
+library("future.apply")
+plan(multisession, workers = n_cores)
 
 data("MultipleFeatures", package = "brglm2")
-
 
 simu_y <- function(X, beta) {
     n <- nrow(X)
@@ -61,50 +63,52 @@ if (file.exists(out_file)) {
         full_coefs[] <- c(beta0, gamma * full_coefs[-1] / sd(X_full[, -1] %*% full_coefs[-1]))
         ## Simulate data sets
         simu_data <- replicate(n_simu, simu_y(X_full, full_coefs), simplify = FALSE)
-        results0 <- mclapply(seq.int(n_simu), function(k) {
-            df <- data.frame(y = simu_data[[k]], X_full)
-            m_full <- glm(full_fm, family = binomial(), data = df, method = mdyplFit, alpha = alpha)
-            m_nest <- glm(nest_fm, family = binomial(), data = df, method = mdyplFit, alpha = alpha)
-            plr <- plrtest(m_nest, m_full, hd_correction = FALSE)[2, "Deviance"]
-            for (att in 1:n_start) {
-                rescaled_plr <- try(plrtest(m_nest, m_full, hd_correction = TRUE,
-                                            solve_se_control = list(init_iter = 10,
+        with_progress(interval = 0.5, {
+            pro <- progressor(n_simu)
+            results0 <- future_lapply(seq.int(n_simu), function(k) {
+                df <- data.frame(y = simu_data[[k]], X_full)
+                m_full <- glm(full_fm, family = binomial(), data = df, method = mdyplFit, alpha = alpha)
+                m_nest <- glm(nest_fm, family = binomial(), data = df, method = mdyplFit, alpha = alpha)
+                plr <- plrtest(m_nest, m_full, hd_correction = FALSE)[2, "Deviance"]
+                for (att in 1:n_start) {
+                    rescaled_plr <- try(plrtest(m_nest, m_full, hd_correction = TRUE,
+                                                solve_se_control = list(init_iter = 10,
                                                                     start = se_start[att, ],
                                                                     control = list(ftol = 1e-12, xtol = 1e-12))),
-                                    silent = TRUE)
-                if (inherits(rescaled_plr, "try-error")) {
-                    linf <- rescaled_plr <- NA
-                    se_pars <- rep(NA, 4)
-                    next
-                } else {
-                    se_pars <- attr(rescaled_plr, "se_parameters")
-                    linf <- max(abs(attr(se_pars, "funcs")))
-                    if (linf > 1e-07) {
-                        rescaled_plr <- NA
+                                        silent = TRUE)
+                    if (inherits(rescaled_plr, "try-error")) {
+                        linf <- rescaled_plr <- NA
+                        se_pars <- rep(NA, 4)
                         next
                     } else {
-                        rescaled_plr <- rescaled_plr[2, "Deviance"]
-                        break
+                        se_pars <- attr(rescaled_plr, "se_parameters")
+                        linf <- max(abs(attr(se_pars, "funcs")))
+                        if (linf > 1e-07) {
+                            rescaled_plr <- NA
+                            next
+                        } else {
+                            rescaled_plr <- rescaled_plr[2, "Deviance"]
+                            break
+                        }
                     }
                 }
-            }
-            msg <- paste0(k, "/", n_simu, " : ", "gamma^2 = ", gamma^2, " beta0 = ", beta0)
-            if (k %% 10 == 0) {
-                if (att == n_start) cat(msg, ": Failed\n") else cat(msg, ": Done\n")
-            }
-            data.frame(value = c(plr, rescaled_plr),
-                       statistic = c("PLR", "rescaled PLR"),
-                       sample = k,
-                       mu = se_pars[1],
-                       b = se_pars[2],
-                       sigma = se_pars[3],
-                       theta0hat = se_pars[4],
-                       linf = linf,
-                       beta0 = beta0,
-                       gamma = gamma)
-        }, mc.cores = n_cores)
-        results <- rbind(results,
-                         do.call("rbind", results0))
+                msg <- paste0("gamma^2 = ", gamma^2, " beta0 = ", beta0)
+                msg <- if (att == n_start) paste(msg, ": Failed\n") else paste(msg, ": Done\n")
+                pro(msg)
+                data.frame(value = c(plr, rescaled_plr),
+                           statistic = c("PLR", "rescaled PLR"),
+                           sample = k,
+                           mu = se_pars[1],
+                           b = se_pars[2],
+                           sigma = se_pars[3],
+                           theta0hat = se_pars[4],
+                           linf = linf,
+                           beta0 = beta0,
+                           gamma = gamma)
+            })
+            results <- rbind(results,
+                             do.call("rbind", results0))
+        })
     }
 
     beta0_levs <- paste("beta[0] ==", sort(unique(results$beta0)))

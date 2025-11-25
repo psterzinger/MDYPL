@@ -13,9 +13,7 @@ handlers("cli")
 library("future.apply")
 plan(multisession, workers = n_cores)
 
-
 source(file.path(supp_path, "code/methods/compute-pt.R"))
-source(file.path(supp_path, "code/methods/generate-unique-seeds.R"))
 
 if (file.exists(out_file)) {
     load(out_file)

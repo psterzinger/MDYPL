@@ -8,12 +8,11 @@ library("mvtnorm")
 library("dplyr")
 library("ggplot2")
 library("patchwork")
-library("parallel")
 library("glmnet")
-library("tictoc")
-
-
-source(file.path(supp_path, "code/methods/generate-unique-seeds.R"))
+library("progressr")
+handlers("cli")
+library("future.apply")
+plan(multisession, workers = n_cores)
 
 scaled_beta <- function(n, kappa, gamma) {
     p <- floor(n * kappa)
@@ -70,7 +69,7 @@ cls_z_stat <- function(estimate, beta0, X, eta, qrX = NULL) {
 }
 
 mdypl <- function(X, y, alpha, start = NULL, se_start = c(0.5, 1, 1)) {
-    fit <- glm(y ~ -1 + X, family = binomial(), method = "mdypl_fit", alpha = alpha, start = start)
+    fit <- glm(y ~ -1 + X, family = binomial(), method = mdypl_fit, alpha = alpha, start = start)
     ss <- try(summary(fit, hd_correction = TRUE,
                       solve_se_control = list(start = se_start, init_iter = 0)),
               silent = TRUE)
@@ -101,8 +100,6 @@ n_settings <- nrow(nk)
 if (!all(file.exists(nk$path))) {
     ## General unique seeds
     set.seed(123)
-    seeds <- generate_unique_seeds(R * n_settings)
-    seeds <- matrix(seeds, ncol = R)
     methds <- c("CLS", "CLS [O]", "rescaled MDYPL", "rescaled MDYPL [O]")
     n_methds <- length(methds)
     stats <-  c("CLS", "CLS [O]", "rescaled MDYPL", "rescaled MDYPL [O]")
@@ -124,23 +121,31 @@ if (!all(file.exists(nk$path))) {
         p <- length(beta_oracle)
         eta_oracle <- drop(X %*% beta_oracle)
         ## responses
-        y <- mclapply(1:R, function(r) { set.seed(seeds[i, r]); simu_y(X, beta_oracle) },
-                      mc.cores = n_cores)
+        y <- future_replicate(R, simu_y(X, beta_oracle), future.seed = TRUE, simplify = FALSE)
         y <- do.call("cbind", y)
         ## LASSO etas
-        tic("Estimating eta")
-        eta_hat <- mclapply(1:R, function(r) { set.seed(seeds[i, r]); eta_lasso(X, y[, r]) },
-                            mc.cores = n_cores)
+        cat("Estimating eta...\n")
+        with_progress({
+            pro <- progressor(R)
+            eta_hat <- future_lapply(1:R, function(r) {
+                pro()
+                eta_lasso(X, y[, r])
+            }, future.seed = TRUE)
+        })
         eta_hat <- do.call("cbind", eta_hat)
-        toc()
         ## MDYPL
-        tic("Computing MDYPL estimates and statistics")
+        cat("Computing MDYPL estimates and statistics...\n")
         ## Oracle constants
         consts_oracle <- c(mu, b, sigma)
         tau_oracle <- sqrt((p + 1) / (2 * p))
         ## Get MDYPL fits
-        mdypl_fits <- mclapply(1:R, function(r) mdypl(X, y[, r], alpha, se_start = consts_oracle * 0.9),
-                               mc.cores = n_cores)
+        with_progress({
+            pro <- progressor(R)
+            mdypl_fits <- future_lapply(1:R, function(r) {
+                pro()
+                mdypl(X, y[, r], alpha, se_start = consts_oracle * 0.9)
+            })
+        })
         ## Corrected estimates and z statistics for beta = 0
         beta_mdypl <- do.call("cbind", lapply(mdypl_fits, "[[", "estimate"))
         z_mdypl <- do.call("cbind", lapply(mdypl_fits, "[[", "z_statistic"))
@@ -148,28 +153,45 @@ if (!all(file.exists(nk$path))) {
         beta_mdypl_unscaled <- do.call("cbind", lapply(mdypl_fits, "[[", "unscaled_estimate"))
         beta_mdypl_oracle <- beta_mdypl_unscaled / consts_oracle[1]
         z_mdypl_oracle <- sqrt(n) * tau_oracle * beta_mdypl_unscaled / consts_oracle[3]
-        toc()
         ## CLS
         ## Corrected estimates and z statistics for beta = 0
-        tic("Compputing CLS estimates and statistics")
+        cat("Compputing CLS estimates and statistics...\n")
         qr_x <- qr(X)
-        tic()
-        beta_cls <- mclapply(1:R, function(r) cls(X, y[, r], eta_hat[, r], qrX = qr_x),
-                             mc.cores = n_cores)
+        with_progress({
+            pro <- progressor(R)
+            beta_cls <- future_lapply(1:R, function(r) {
+                pro()
+                cls(X, y[, r], eta_hat[, r], qrX = qr_x)
+            })
+        })
         beta_cls <- do.call("cbind", beta_cls)
-        z_cls <- mclapply(1:R, function(r) cls_z_stat(beta_cls[, r], rep(0, p), X, eta_hat[, r], qrX = qr_x),
-                          mc.cores = n_cores)
+        with_progress({
+            pro <- progressor(R)
+            z_cls <- future_lapply(1:R, function(r) {
+                pro()
+                cls_z_stat(beta_cls[, r], rep(0, p), X, eta_hat[, r], qrX = qr_x)
+            })
+        })
         z_cls <- do.call("cbind", z_cls)
         ## Oracle corrected estimates and z statistics for beta = 0
-        beta_cls_oracle <- mclapply(1:R, function(r) cls(X, y[, r], eta_oracle, qrX = qr_x),
-                                    mc.cores = n_cores)
+        with_progress({
+            pro <- progressor(R)
+            beta_cls_oracle <- future_lapply(1:R, function(r) {
+                pro()
+                cls(X, y[, r], eta_oracle, qrX = qr_x)
+            })
+        })
         beta_cls_oracle <- do.call("cbind", beta_cls_oracle)
-        z_cls_oracle <- mclapply(1:R, function(r) cls_z_stat(beta_cls_oracle[, r], rep(0, p), X, eta_oracle, qrX = qr_x),
-                                 mc.cores = n_cores)
+        with_progress({
+            pro <- progressor(R)
+            z_cls_oracle <- future_lapply(1:R, function(r) {
+                pro()
+                cls_z_stat(beta_cls_oracle[, r], rep(0, p), X, eta_oracle, qrX = qr_x)
+            })
+        })
         z_cls_oracle <- do.call("cbind", z_cls_oracle)
-        toc()
         ## Collect results
-        tic("Collecting results")
+        cat("Collecting results...\n")
         ## Constants
         consts <- lapply(mdypl_fits, function(x) {
             co <- x$consts
@@ -190,7 +212,6 @@ if (!all(file.exists(nk$path))) {
                                    parameter = rep(1:p, R * n_stats),
                                    sample = rep(rep(1:R, each = p), n_stats),
                                    kappa = kappa, gamma = gamma, N = n, p = p)
-        toc()
         save(nk, constants, estimates, z_statistics, file = nk$path[i])
     }
 }

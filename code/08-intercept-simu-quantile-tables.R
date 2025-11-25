@@ -7,12 +7,14 @@ n_cores <- 10
 library("brglm2")
 library("dplyr")
 library("tidyr")
-library("parallel")
 library("RcppNumerical")
 library("tictoc")
+library("progressr")
+handlers("cli")
+library("future.apply")
+plan(multisession, workers = n_cores)
 
-
-source(file.path(supp_path, "code/methods/generate-unique-seeds.R"))
+source(file.path(supp_path, "code/methods/fit-mdypl.R"))
 
 scaled_beta <- function(beta, n, kappa, gamma) {
     p <- floor(n * kappa)
@@ -27,14 +29,6 @@ simu_X <- function(n, kappa) {
 simu_y <- function(X, beta) {
     eta <- drop(X %*% beta)
     rbinom(length(eta), 1, plogis(eta))
-}
-
-fit_mdypl <- function(X, y, alpha = 1, start = rep(0, ncol(X)),
-                      eps_f = 1e-14, eps_g = 1e-14, maxit = 1000) {
-    ya <- alpha * y + (1 - alpha) / 2
-    res <- fastLR(X, ya, start, eps_f, eps_g, maxit = maxit)
-    res$pl <- sum(ya * log(fitted(res)) + (1 - ya) * log(1 - fitted(res)))
-    res
 }
 
 long2wide <- function(tab) {
@@ -62,15 +56,11 @@ if (file.exists(out_file)) {
     n_settings <- nrow(kt)
     quant <- c(1, 5, 10, 25, 50, 75, 90, 95, 99)
     statistics <- NULL
-    set.seed(123)
-    seeds <- generate_unique_seeds(R * n_settings, maxint = 100 * R * n)
-    seeds <- matrix(seeds, ncol = R)
     for (i in 1:n_settings) {
         theta0 <- kt[i, "theta0"]
         kappa <- kt[i, "kappa"]
         alpha <- kt[i, "alpha"]
         cat(i, "/", n_settings, ": Computing statistics for kappa =", kappa, "and theta0 =", theta0, "\n")
-        tic()
         p <- kt[i, "p"]
         tau = 1 / sqrt(n)
         beta0 <- rep(0, p)
@@ -80,24 +70,26 @@ if (file.exists(out_file)) {
         coord_z <- inds_z[1]
         coord_nz <- which(beta0 != 0)[1]
         se_consts <- solve_se(kappa, gamma, alpha, intercept = theta0, corrupted = FALSE, start = c(0.5, 1, 1, theta0))
-        results <- mclapply(1:R, function(r) {
-            if (r %% 100 == 0) cat(r, "/", R, "\n")
-            set.seed(seeds[i, r])
-            X_full <- simu_X(n, kappa)
-            X_nest <- X_full[, -inds_z]
-            X_full <- cbind(1, X_full)
-            X_nest <- cbind(1, X_nest)
-            y <- simu_y(X_full, c(theta0, beta0))
-            start_full <- c(se_consts[4], beta0 * se_consts[1])
-            start_nest <- start_full[-c(inds_z + 1)]
-            m_full <- fit_mdypl(X_full, y, alpha, start_full, 1e-14, 1e-14, 1000)
-            m_nest <- fit_mdypl(X_nest, y, alpha, start_nest, 1e-14, 1e-14, 1000)
-            plr_z <- 2 * (m_full$pl - m_nest$pl) * se_consts[2] / (kappa * se_consts[3]^2)
-            z_z <- sqrt(n) * tau * coef(m_full)[coord_z + 1] / se_consts[3]
-            z_nz <- sqrt(n) * tau * (coef(m_full)[coord_nz + 1] - se_consts[1] * beta0[coord_nz]) / se_consts[3]
-            data.frame(z_z = z_z, z_nz = z_nz, plr_z = plr_z)
-        }, mc.cores = n_cores)
-        toc()
+        set.seed(123)
+        with_progress(interval = 1, {
+            pro <- progressor(R)
+            results <- future_lapply(1:R, function(r) {
+                X_full <- simu_X(n, kappa)
+                X_nest <- X_full[, -inds_z]
+                X_full <- cbind(1, X_full)
+                X_nest <- cbind(1, X_nest)
+                y <- simu_y(X_full, c(theta0, beta0))
+                start_full <- c(se_consts[4], beta0 * se_consts[1])
+                start_nest <- start_full[-c(inds_z + 1)]
+                m_full <- fit_mdypl(X_full, y, alpha, start_full)
+                m_nest <- fit_mdypl(X_nest, y, alpha, start_nest)
+                plr_z <- 2 * (m_full$pl - m_nest$pl) * se_consts[2] / (kappa * se_consts[3]^2)
+                z_z <- sqrt(n) * tau * coef(m_full)[coord_z + 1] / se_consts[3]
+                z_nz <- sqrt(n) * tau * (coef(m_full)[coord_nz + 1] - se_consts[1] * beta0[coord_nz]) / se_consts[3]
+                pro()
+                data.frame(z_z = z_z, z_nz = z_nz, plr_z = plr_z)
+            }, future.seed = TRUE)
+        })
         results <- do.call("rbind", results)
         tab <- results |>
             reframe(z_z = sapply(qnorm(quant / 100), function(q) 100 * mean(z_z < q)),
