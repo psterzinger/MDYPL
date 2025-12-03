@@ -3,12 +3,13 @@ figures_path <- file.path(supp_path, "figures")
 results_path = file.path(supp_path, "results")
 n_cores <- 10
 
-library("parallel")
 library("ggplot2")
 library("brglm2")
 library("detectseparation")
-
-source(file.path(supp_path, "code/methods/generate-unique-seeds.R"))
+library("progressr")
+handlers("cli")
+library("future.apply")
+plan(multisession, workers = n_cores)
 
 simulate_BT_df <- function(abilities, gamma = 1, kappa = 0.1) {
     n_players <- length(abilities)
@@ -66,50 +67,50 @@ if (file.exists(out_file)) {
     BT_formula <- formula(paste("y ~ -1 + . -", fixed[1]))
     BT_formula_nest <- formula(paste("y ~ -1 + . -", paste(fixed, collapse = "-")))
     set.seed(123)
-    seeds <- generate_unique_seeds(n_simu)
-    res <- mclapply(1:n_simu, function(j) {
-        set.seed(seeds[j])
-        dat <- simulate_BT_df(abilities0, kappa = kappa0, gamma = gamma0)
-        fit_mdypl <- glm(BT_formula, data = dat, family = binomial(),
-                         method = "mdypl_fit",
-                         alpha = alpha0)
-        is_sep <- glm(BT_formula, data = dat, family = binomial(),
-                      method = "detect_separation")
-        summ_hd <- try(summary(fit_mdypl, hd_correction = TRUE), silent = TRUE)
-        se_failed <- inherits(summ_hd, "try-error")
-        coefs_mdypl <-  na.omit(coef(fit_mdypl))
-        fit_mdypl_nest <- glm(BT_formula_nest, data = dat, family = binomial(),
-                              method = "mdypl_fit",
-                              alpha = alpha0)
-        pv <- plrtest(fit_mdypl_nest, fit_mdypl)[2, "Pr(>Chi)"]
-        if (se_failed) {
-            ss <- NA
-            coefs_sc_mdypl <- rep(NA, length(coefs_mdypl))
-            se_pars <- rep(NA, 3)
-            sc_pv <- NA
-        } else {
-            ss <- summ_hd$signal_strength
-            coefs_sc_mdypl <- coef(summ_hd)[, "Estimate"]
-            se_pars <- summ_hd$se_parameters
-            sc_pv <- plrtest(fit_mdypl_nest, fit_mdypl, hd_correction = TRUE,
-                             se_start = se_pars)[2, "Pr(>Chi)"]
-        }
-        cat(j, ":", if (se_failed) "failed" else "done", "ss", ":", ss, "\n")
-        co <- co_sc <- is_inf <- rep(NA, n_players)
-        names(co) <- names(co_sc) <- names(is_inf) <- colnames(dat)[-1]
-        co[names(coefs_mdypl)] <- coefs_mdypl
-        co_sc[names(coefs_mdypl)] <- coefs_sc_mdypl
-        is_inf[names(coef(is_sep))] <- is.infinite(coef(is_sep))
-        list(coefs_mdypl = co,
-             coefs_sc_mdypl = co_sc,
-             inf_coefs = is_inf,
-             se_pars = se_pars,
-             pv = pv,
-             sc_pv = sc_pv,
-             ss = ss,
-             separation = is_sep$outcome)
-    },
-    mc.cores = n_cores)
+    with_progress(interval = 0.5, {
+        pro <- progressor(n_simu)
+        res <- future_lapply(1:n_simu, function(j) {
+            dat <- simulate_BT_df(abilities0, kappa = kappa0, gamma = gamma0)
+            fit_mdypl <- glm(BT_formula, data = dat, family = binomial(),
+                             method = "mdypl_fit",
+                             alpha = alpha0)
+            is_sep <- glm(BT_formula, data = dat, family = binomial(),
+                          method = detectseparation::detect_separation)
+            summ_hd <- try(summary(fit_mdypl, hd_correction = TRUE), silent = TRUE)
+            se_failed <- inherits(summ_hd, "try-error")
+            coefs_mdypl <-  na.omit(coef(fit_mdypl))
+            fit_mdypl_nest <- glm(BT_formula_nest, data = dat, family = binomial(),
+                                  method = "mdypl_fit",
+                                  alpha = alpha0)
+            pv <- plrtest(fit_mdypl_nest, fit_mdypl)[2, "Pr(>Chi)"]
+            if (se_failed) {
+                ss <- NA
+                coefs_sc_mdypl <- rep(NA, length(coefs_mdypl))
+                se_pars <- rep(NA, 3)
+                sc_pv <- NA
+            } else {
+                ss <- summ_hd$signal_strength
+                coefs_sc_mdypl <- coef(summ_hd)[, "Estimate"]
+                se_pars <- summ_hd$se_parameters
+                sc_pv <- plrtest(fit_mdypl_nest, fit_mdypl, hd_correction = TRUE,
+                                 se_start = se_pars)[2, "Pr(>Chi)"]
+            }
+            pro(paste(j, ":", if (se_failed) "failed" else "done", "ss", ":", ss))
+            co <- co_sc <- is_inf <- rep(NA, n_players)
+            names(co) <- names(co_sc) <- names(is_inf) <- colnames(dat)[-1]
+            co[names(coefs_mdypl)] <- coefs_mdypl
+            co_sc[names(coefs_mdypl)] <- coefs_sc_mdypl
+            is_inf[names(coef(is_sep))] <- is.infinite(coef(is_sep))
+            list(coefs_mdypl = co,
+                 coefs_sc_mdypl = co_sc,
+                 inf_coefs = is_inf,
+                 se_pars = se_pars,
+                 pv = pv,
+                 sc_pv = sc_pv,
+                 ss = ss,
+                 separation = is_sep$outcome)
+        }, future.seed = TRUE)
+    })
     abilities <- attr(simulate_BT_df(abilities0, kappa = kappa0, gamma = gamma0), "abilities")
     save(n_players, res, abilities, file = out_file)
 }
@@ -198,5 +199,5 @@ qqplots <- ggplot(results) +
     theme_minimal()
 
 pdf(file.path(figures_path, "bt-qqplots.pdf"), width = 9, height = 3)
-qqplots
+print(qqplots)
 dev.off()
