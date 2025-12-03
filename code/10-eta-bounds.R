@@ -4,9 +4,13 @@ results_path <- file.path(supp_path, "results")
 out_file <- file.path(results_path, "upsilon-gamma.rda")
 n_cores <- 10
 
-library("parallel")
 library("ggplot2")
 library("brglm2")
+library("progressr")
+handlers("cli")
+library("future.apply")
+plan(multisession, workers = n_cores)
+
 
 get_upsilon_gamma <- function(kappa, gammas, alphas, start) {
     n_gamma <- length(gammas)
@@ -20,7 +24,7 @@ get_upsilon_gamma <- function(kappa, gammas, alphas, start) {
         constants[j, 1:3] <- consts
         constants[j, 4] <- max(abs(attr(consts, "funcs")))
         upsilon[j] <- sqrt(consts[1]^2 * gamma^2 + kappa * consts[3]^2)
-        if (j %% 10 == 0) cat(j, "/", n_gamma, "kappa =", kappa, "gamma =", gamma, "alpha =", alpha, ":", constants[j, ], "\n")
+        ## if (j %% 10 == 0) cat(j, "/", n_gamma, "kappa =", kappa, "gamma =", gamma, "alpha =", alpha, ":", constants[j, ], "\n")
     }
     data.frame(kappa = kappa, gamma = gammas, alpha = alphas, upsilon = upsilon, constants)
 }
@@ -36,7 +40,6 @@ if (file.exists(out_file)) {
     n_kappas <- length(kappas)
     ak <- expand.grid(alpha = alphas,
                       kappa = kappas)
-
     ## Get starting values
     c_results <- data.frame(mu = 0.8, b = 1, sigma = 1)
     starting_values <- NULL
@@ -54,22 +57,29 @@ if (file.exists(out_file)) {
             starting_values <- rbind(starting_values, c_results)
         }
     }
-
-    results <- mclapply(1:nrow(ak), function(j) {
-        kappa <- ck <- ak[j, "kappa"]
-        alpha <- ca <- ak[j, "alpha"]
-        start <- unlist(subset(starting_values, kappa == ck & alpha == ca)[1, c("mu", "b", "sigma")])
-        get_upsilon_gamma(kappa, gammas, rep(alpha, n_gammas), start = start)
-    }, mc.cores = 10)
+    set.seed(123)
+    with_progress(interval = 0.5, {
+        pro <- progressor(nrow(ak))
+        results <- future_lapply(1:nrow(ak), function(j) {
+            pro()
+            kappa <- ck <- ak[j, "kappa"]
+            alpha <- ca <- ak[j, "alpha"]
+            start <- unlist(subset(starting_values, kappa == ck & alpha == ca)[1, c("mu", "b", "sigma")])
+            get_upsilon_gamma(kappa, gammas, rep(alpha, n_gammas), start = start)
+        }, future.seed = TRUE)
+    })
     results <- do.call("rbind", results)
-
     ## Adaptive alpha
     alpha_adapt <- plogis(gammas/2)
     start <- c(0.8, 1, 1)
-    results_adapt <- mclapply(1:n_kappas, function(ka) {
-        kappa <- kappas[ka]
-        get_upsilon_gamma(kappa, gammas, alpha_adapt, start = start)
-    }, mc.cores = 10)
+    with_progress(interval = 0.5, {
+        pro <- progressor(n_kappas)
+        results_adapt <- future_lapply(1:n_kappas, function(ka) {
+            pro()
+            kappa <- kappas[ka]
+            get_upsilon_gamma(kappa, gammas, alpha_adapt, start = start)
+        }, future.seed = TRUE)
+    })
     results_adapt <- do.call("rbind", results_adapt)
     save(results, results_adapt, file = out_file)
 }
