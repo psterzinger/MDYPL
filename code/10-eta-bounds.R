@@ -6,8 +6,7 @@ n_cores <- 10
 
 library("parallel")
 library("ggplot2")
-## library("brglm2")
-devtools::load_all("~/Repositories/brglm2")
+library("brglm2")
 
 get_upsilon_gamma <- function(kappa, gammas, alphas, start) {
     n_gamma <- length(gammas)

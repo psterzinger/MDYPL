@@ -5,8 +5,7 @@ n_cores <- 10
 
 library("parallel")
 library("ggplot2")
-## library("brglm2")
-devtools::load_all("~/Repositories/brglm2")
+library("brglm2")
 library("detectseparation")
 
 source(file.path(supp_path, "code/methods/generate-unique-seeds.R"))
