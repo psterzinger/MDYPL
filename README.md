@@ -1,6 +1,6 @@
 # Supplementary material for “Diaconis-Ylvisaker prior penalized likelihood for *p*/*n* → *κ* ∈ (0, 1) logistic regression”
 Philipp Sterzinger, Ioannis Kosmidis
-November 21, 2025
+December 3, 2025
 
 # Directory structure
 
@@ -25,13 +25,13 @@ produce.
 
 # R version and contributed packages
 
-All results are reproducible using R version 4.5.1 (2025-06-13) and the
+All results are reproducible using R version 4.5.2 (2025-10-31) and the
 contributed packages
 
-<table style="width:40%;">
+<table style="width:46%;">
 <colgroup>
 <col style="width: 26%" />
-<col style="width: 13%" />
+<col style="width: 19%" />
 </colgroup>
 <thead>
 <tr>
@@ -41,8 +41,8 @@ contributed packages
 </thead>
 <tbody>
 <tr>
-<td>colorspace</td>
-<td>2.1-2</td>
+<td>brglm2</td>
+<td>1.0.1</td>
 </tr>
 <tr>
 <td>detectseparation</td>
@@ -54,7 +54,7 @@ contributed packages
 </tr>
 <tr>
 <td>ggplot2</td>
-<td>4.0.0</td>
+<td>4.0.1</td>
 </tr>
 <tr>
 <td>ggpp</td>
@@ -65,16 +65,28 @@ contributed packages
 <td>4.1-10</td>
 </tr>
 <tr>
-<td>lmtest</td>
-<td>0.9-40</td>
+<td>memisc</td>
+<td>0.99.31.8.3</td>
+</tr>
+<tr>
+<td>mvtnorm</td>
+<td>1.3-3</td>
+</tr>
+<tr>
+<td>nleqslv</td>
+<td>3.3.5</td>
 </tr>
 <tr>
 <td>patchwork</td>
 <td>1.3.2</td>
 </tr>
 <tr>
-<td>tidyr</td>
-<td>1.3.1</td>
+<td>RcppNumerical</td>
+<td>0.6-0</td>
+</tr>
+<tr>
+<td>tictoc</td>
+<td>1.2.1</td>
 </tr>
 </tbody>
 </table>
