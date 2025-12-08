@@ -1,6 +1,7 @@
-# Supplementary material for “Diaconis-Ylvisaker prior penalized likelihood for *p*/*n* → *κ* ∈ (0, 1) logistic regression”
+# Supplementary material for “Diaconis-Ylvisaker prior penalized
+likelihood for *p*/*n* → *κ* ∈ (0, 1) logistic regression”
 Philipp Sterzinger, Ioannis Kosmidis
-December 3, 2025
+December 8, 2025
 
 # Directory structure
 
@@ -104,13 +105,6 @@ the case for your setup, you should set `supp_path` appropriately.
 
 In each of the R scripts relying on parallel computation, `n_cores`
 (currently set to `10`) sets the number of cores to use.
-
-Computation in several of the R scripts relies on parallel computing,
-which is implemented through the `parallel` R package. The script will
-not work on Windows unless `n_cores <- 1` (which will lead in long
-compute times and is not recommended) or it is modified to use a
-different parallel back-end. All results should be reproducible in
-Unix-based systems (e.g. macOS and Linux).
 
 ## Details
 
