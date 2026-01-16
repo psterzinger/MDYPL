@@ -265,14 +265,14 @@ mDYPL_ridge <- ggplot(all_mses) +
     facet_grid(. ~ gamma_lab, labeller = label_parsed) +
     geom_hline(aes(yintercept = 1), linetype = 3) +
     labs(x = expression(kappa),
-         y = expression(min[alpha]~aMSE[mDYPL]^{1/2} / min[lambda]~aMSE[ridge]^{1/2}),
+         y = expression(min[alpha]~aMSE[MDYPL]^{1/2} / min[lambda]~aMSE[ridge]^{1/2}),
          fill = "MLE exists") +
     scale_y_continuous(transform = scales::transform_log(),
-                       breaks = c(0.5, 1, 2, 4),
-                       limits = c(0.5, 4)) +
+                       breaks = c(1, 2, 4),
+                       limits = c(0.7, 4)) +
     theme_minimal() +
     scale_x_continuous(breaks = (1:9) / 10, limits = c(0, 1.)) +
-    theme(legend.position = "bottom", strip.text = element_blank(),
+    theme(legend.position = "right", strip.text = element_blank(),
           axis.text.x = element_text(angle = 60, hjust = 1, size = 7))
 
 mDYPL_ML <- ggplot(all_mses) +
@@ -284,16 +284,16 @@ mDYPL_ML <- ggplot(all_mses) +
     facet_grid(. ~ gamma_lab, labeller = label_parsed) +
     geom_hline(aes(yintercept = 1), linetype = 3) +
     labs(x = NULL,
-         y = expression(min[alpha]~aMSE[mDYPL]^{1/2} / aMSE[ML]^{1/2}),
+         y = expression(min[alpha]~aMSE[MDYPL]^{1/2} / aMSE[ML]^{1/2}),
          fill = "MLE exists") +
     scale_y_continuous(transform = scales::transform_log(),
-                       breaks = c(0.5, 1, 2, 4),
-                       limits = c(0.5, 4)) +
+                       breaks = c(1, 2, 4),
+                       limits = c(0.7, 4)) +
     theme_minimal() +
     scale_x_continuous(breaks = (1:9) / 10, limits = c(0, 1.)) +
     theme(legend.position = "none",
           axis.text.x = element_blank())
 
-pdf(file.path(figures_path, "rlr_mse_scaled_plots.pdf"), width = 8, height = 6)
+pdf(file.path(figures_path, "rlr_mse_scaled_plots.pdf"), width = 8, height = 5.5)
 print(mDYPL_ML / mDYPL_ridge)
 dev.off()

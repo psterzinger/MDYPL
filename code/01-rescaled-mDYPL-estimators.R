@@ -18,6 +18,7 @@ source(file.path(supp_path, "code/methods/plot-with-insets.R"))
 source(file.path(supp_path, "code/methods/compute-pt.R"))
 source(file.path(supp_path, "code/methods/fit-mdypl.R"))
 
+
 ## Estimates for setting 1
 estimate_s1 <- function(kappa, gamma) {
     n <- 1000
