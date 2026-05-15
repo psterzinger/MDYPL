@@ -1,5 +1,5 @@
-# Supplementary material for “Diaconis-Ylvisaker prior penalized
-likelihood for *p*/*n* → *κ* ∈ (0, 1) logistic regression”
+# Supplementary material for “Diaconis-Ylvisaker prior penalized likelihood for *p*/*n* → *κ* ∈ (0, 1) logistic regression”
+
 Philipp Sterzinger, Ioannis Kosmidis
 December 8, 2025
 
